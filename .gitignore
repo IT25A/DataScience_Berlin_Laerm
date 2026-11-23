@@ -45,11 +45,14 @@ berlin_laerm_sozialstruktur_starter/data/raw/*.tif
 berlin_laerm_sozialstruktur_starter/data/raw/*.tiff
 berlin_laerm_sozialstruktur_starter/data/raw/*.geojson
 berlin_laerm_sozialstruktur_starter/data/raw/*.gpkg
+berlin_laerm_sozialstruktur_starter/data/**
 berlin_laerm_sozialstruktur_starter/data/processed/
 
 # Outputs (Ergebnisse, Diagramme)
 outputs/*
 !outputs/.gitkeep
+berlin_laerm_sozialstruktur_starter/outputs/*
+!berlin_laerm_sozialstruktur_starter/outputs/.gitkeep
 
 # OS
 .DS_Store
