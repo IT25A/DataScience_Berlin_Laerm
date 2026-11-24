@@ -28,7 +28,7 @@ Das Projekt ist als Querschnittanalyse aufgebaut. Die Daten stammen nicht alle a
 
 - Lärm: 2022
 - Soziale Lage: MSS 2025, Datenstand 31.12.2024
-- Mieten: IBB 2025 (Robustheitscheck mit IBB 2022)
+- Mieten: IBB 2025
 
 Eine zeitlich exakte Längsschnittanalyse wäre deshalb nicht möglich. Die Ergebnisse beschreiben räumliche Zusammenhänge zum jeweiligen Datenstand.
 
@@ -44,9 +44,9 @@ Der Analyseablauf ist bewusst mehrstufig aufgebaut:
 4. Verknüpfung von Lärm, sozialer Lage und Mietdaten
 5. **PCA** über die vier MSS-Status-Indikatoren → Benachteiligungsindex
 6. Deskriptive Statistik
-7. Pearson- und Spearman-Korrelation
-8. Gruppenvergleich (Kruskal-Wallis, ANOVA)
-9. Lineare Regression mit robusten bzw. räumlich geclusterten Standardfehlern
+7. Korrelationsmatrix (Überblick)
+8. ANOVA (Hypothesentest)
+9. Multiple lineare Regression
 10. K-Means-Clustering
 11. Räumliche Autokorrelation nach Moran
 12. Karten und Ergebnisgrafik
@@ -56,10 +56,10 @@ Die Kombination dieser Methoden entspricht dem Umfang eines Data-Science-Moduls:
 - Erwartungswert, Median, Varianz und Standardabweichung
 - Verteilungen und Ausreißer
 - Standardisierung und Hauptkomponentenanalyse
-- Korrelationsanalyse und nichtparametrische Tests
-- lineare Regression
-- K-Means-Clustering
-- räumliche Nachbarschaften und räumliche Statistik
+- Hypothesentests (ANOVA)
+- multiple lineare Regression
+- K-Means-Clustering (Elbow-Methode)
+- räumliche Abhängigkeit (Moran's I)
 - Kartendarstellung
 
 Der wissenschaftliche Kern liegt nicht in der Anzahl der Algorithmen, sondern darin, dass Datenqualität, räumliche Einheit, Aggregation und Limitationen sauber dokumentiert werden.
@@ -123,7 +123,7 @@ L_{\text{PLR}} = 10 \cdot \log_{10}\left(\frac{1}{n}\sum_{i=1}^{n}10^{L_i/10}\ri
 
 ## 3.4 IBB-Angebotsmieten
 
-**Datei:** `data/raw/Mietdaten.xlsx`, Blätter `Planungsräume_2025` (Haupt) und `Planungsräume_2022` (Robustheit)
+**Datei:** `data/raw/Mietdaten.xlsx`, Blatt `Planungsräume_2025`
 **Quelle:** https://www.ibb.de/de/ueber-uns/publikationen/wohnungsmarktbericht/2025.html
 
 - 522 PLR mit Median, 20 ohne Inserate („keine Daten“)
@@ -158,75 +158,51 @@ Ausgaben: `data/processed/berlin_merged.csv`, `berlin_merged.gpkg` (inkl. Index,
 ## 5. PCA: Benachteiligungsindex
 
 - Eingangsvariablen: S1–S4, z-standardisiert, n = 535
-- Bartlett-Test: Chi² = 2835, p < 0,001 → Indikatoren hoch korreliert, PCA sinnvoll
-- Eigenwerte: 3,24 / 0,67 / 0,07 / 0,03 → nach Kaiser-Kriterium genau **eine** Komponente
+- Eigenwerte: 3,24 / 0,67 / 0,07 / 0,03 → eine dominierende Komponente
 - **PC1 erklärt 80,7 %** der Varianz
 - Ladungen PC1: Kinderarmut 0,97, Arbeitslosigkeit 0,97, Transferbezug 0,97, Alleinerziehende 0,65
-- **Validierung:** r = 0,998 mit dem amtlichen MSS-Status-Index; ρ = 0,84 mit der Statusklasse
+- **Validierung:** Korrelation r = 0,998 mit dem amtlichen MSS-Status-Index
 - Index z-standardisiert (Mittel 0, SD 1); höhere Werte = stärkere Benachteiligung
 
 Ausgaben: `pca_bericht.txt`, `pca_loadings.csv`, `pca_explained_variance.csv`, `pca_scree_ladungen.png`
 
 ---
 
-## 6. Korrelationen
+## 6. Deskriptive Statistik und Korrelationsmatrix
 
-| Paar | n | Pearson r | p | Spearman ρ | p |
-|---|---:|---:|---:|---:|---:|
-| Benachteiligung – LDEN energetisch | 535 | 0,06 | 0,152 | 0,12 | 0,004 |
-| Benachteiligung – Straßenlärm LDEN | 535 | 0,17 | < 0,001 | 0,21 | < 0,001 |
-| Benachteiligung – LDEN Median | 535 | −0,09 | 0,041 | −0,09 | 0,035 |
-| Benachteiligung – Anteil > 65 dB | 535 | 0,07 | 0,094 | 0,13 | 0,002 |
-| Miete – LDEN | 434 | 0,38 | < 0,001 | 0,39 | < 0,001 |
-| Benachteiligung – Miete | 434 | −0,48 | < 0,001 | −0,47 | < 0,001 |
+Kennzahlen (Mittelwert, Median, Quartile, Varianz) und Histogramme aller Analysevariablen; die Korrelationsmatrix dient nur als Überblick (z. B. Miete–Lärm r = 0,38, Benachteiligung–Miete r = −0,48, Benachteiligung–Lärm r = 0,06).
 
-Die Zusammenhänge zwischen Benachteiligung und Lärm sind sehr schwach, und ihr Vorzeichen hängt vom Lärmmaß ab. Hinweis: Diese p-Werte berücksichtigen keine räumliche Autokorrelation und sind daher zu optimistisch.
+Ausgaben: `descriptive_statistics.csv`, `histogramme.png`, `korrelationsmatrix.png`
 
 ---
 
-## 7. Gruppenvergleich
+## 7. ANOVA: Lärm nach Benachteiligungs-Quintilen
 
 | Gruppe | Q1 (geringste) | Q2 | Q3 | Q4 | Q5 (stärkste) |
 |---|---:|---:|---:|---:|---:|
 | Mittlerer LDEN [dB] | 55,8 | 58,4 | 57,7 | 57,2 | 57,4 |
 
-- Kruskal-Wallis über Quintile: p < 0,001; nach MSS-Klasse ebenfalls p < 0,001
+- ANOVA: F = 7,97, p < 0,001 → die Quintile unterscheiden sich
 - **Muster:** Die am wenigsten benachteiligten Gebiete sind rund 1,9 dB leiser. Zwischen Q2 und Q5 gibt es kaum Unterschiede (1,2 dB) und keinen ansteigenden Verlauf
-- Nach MSS-Klasse sind die Gebiete mit „sehr niedrigem“ Status (Großsiedlungen am Stadtrand) leiser als die Klassen „mittel“ und „niedrig“
 
-Ausgaben: `gruppenvergleich_tests.csv`, `gruppenvergleich_profile.csv`, `boxplot_laerm_nach_sozialer_lage.png`
+Ausgaben: `anova_ergebnis.txt`, `anova_profile.csv`
 
 ---
 
-## 8. Regression
+## 8. Multiple lineare Regression
 
-Kontrollvariablen: log(1 + Einwohnerdichte), Innere Stadt (0/1). Standardfehler: HC3 bzw. **geclustert nach 58 Prognoseräumen**. Die geclusterten Standardfehler sind maßgeblich, weil die Residuen räumlich autokorreliert sind.
+Kontrollvariablen: log(1 + Einwohnerdichte), Innere Stadt (0/1). Koeffizient des Index = Effekt pro Standardabweichung Benachteiligung.
 
-### Modell A: Lärm ~ Benachteiligung (Effekt pro SD des Index)
+| Modell | Zielvariable | b Benachteiligung | p | b Lärm | p | R² | n |
+|---|---|---:|---:|---:|---:|---:|---:|
+| A1 | Lärm | +0,22 dB | 0,152 | – | – | 0,004 | 535 |
+| A2 | Lärm (+ Kontrollen) | +0,22 dB | 0,154 | – | – | 0,225 | 535 |
+| B | Miete (+ Kontrollen) | −2,09 EUR/m² | < 0,001 | +0,23 EUR/m² pro dB | < 0,001 | 0,534 | 434 |
 
-| Modell | Ziel | Koeff. | 95 %-KI | p | R² |
-|---|---|---:|---|---:|---:|
-| A1 | LDEN, HC3 | +0,22 | [−0,08; 0,53] | 0,155 | 0,004 |
-| A2 | LDEN, Cluster-SE | +0,22 | [−0,35; 0,80] | 0,445 | 0,004 |
-| A3 | LDEN + Kontrollen | +0,22 | [−0,19; 0,63] | 0,289 | 0,225 |
-| A4 | Median-LDEN + Kontrollen | +0,22 | [−0,14; 0,58] | 0,239 | 0,092 |
-| A5 | Anteil > 65 dB + Kontrollen | +0,44 %-Pkt. | [−0,16; 1,04] | 0,154 | 0,249 |
-| A6 | Straßenlärm + Kontrollen | +0,39 | [−0,06; 0,84] | 0,086 | 0,229 |
+- **A1/A2:** Kein signifikanter linearer Effekt der Benachteiligung auf Lärm. Die Lage (Innere Stadt: +3,6 dB, p < 0,001) erklärt den Großteil der Lärmunterschiede.
+- **B:** Lärm und Benachteiligung hängen beide hochsignifikant mit der Miete zusammen; die Innere Stadt ist +4,0 EUR/m² teurer. Lageeffekt, nicht kausal.
 
-**Korrektur gegenüber der früheren Fassung:** Das frühere Ergebnis (p = 0,025) beruhte auf dem ordinalen Score mit HC3-Standardfehlern. Mit stetigem Index und räumlich geclusterten Standardfehlern ist **kein Modell signifikant**. Der Straßenlärm zeigt eine schwache Tendenz (p = 0,09).
-
-### Modell B: Miete ~ Lärm + Benachteiligung
-
-| Modell | b Lärm [EUR/m² pro dB] | b Benachteiligung [EUR/m² pro SD] | R² |
-|---|---:|---:|---:|
-| B1 (HC3) | +0,48 (p < 0,001) | −2,22 (p < 0,001) | 0,38 |
-| B2 (+ Kontrollen, Cluster) | +0,23 (p < 0,001) | −2,09 (p < 0,001) | 0,53 |
-
-Robustheit (B2): Bei Mindestfallzahlen von 10, 21 und 30 Inseraten liegt b Lärm bei 0,23 / 0,23 / 0,28. Mit den Mieten 2022 sind es 0,26. Das Ergebnis ist **stabil**. Der positive Lärmeffekt halbiert sich durch die Lagekontrolle; er spiegelt überwiegend die Attraktivität zentraler Lagen wider und ist nicht kausal zu lesen.
-
-VIF aller Modelle < 1,8 → keine Multikollinearität.
-
-Ausgaben: `regression_uebersicht.csv`, `regression_*.txt`, `vif_values.csv`, `regression_robustheit_miete.csv`
+Ausgaben: `regression_uebersicht.csv`, `regression_A1_laerm_einfach.txt`, `regression_A2_laerm_kontrollen.txt`, `regression_B_miete.txt`
 
 ---
 
@@ -234,11 +210,7 @@ Ausgaben: `regression_uebersicht.csv`, `regression_*.txt`, `vif_values.csv`, `re
 
 Merkmale (standardisiert): LDEN, Benachteiligungsindex, Angebotsmiete; n = 434.
 
-| k | 2 | 3 | 4 | 5 | 6 | 7 |
-|---|---:|---:|---:|---:|---:|---:|
-| Silhouette | 0,331 | 0,300 | 0,284 | 0,256 | 0,257 | 0,262 |
-
-**Gewählt: k = 4.** k = 2 hat den höchsten Score, trennt aber nur „benachteiligt/günstig“ von „wohlhabend/teuer“ und blendet Lärm aus. k = 4 bleibt über 0,25 (schwache, aber vorhandene Struktur) und liefert eine interpretierbare Typologie aus laut/leise und benachteiligt/wohlhabend.
+**Gewählt: k = 4** (Elbow-Plot `kmeans_elbow.png`): Die Inertia sinkt bis k = 4 deutlich (1302 → 825 → 615 → 518) und danach nur noch langsam. k = 4 liefert zudem eine interpretierbare Typologie aus laut/leise und benachteiligt/wohlhabend.
 
 | Cluster | n | LDEN | Index | Miete | Typische Lage |
 |---|---:|---:|---:|---:|---|
@@ -249,7 +221,7 @@ Merkmale (standardisiert): LDEN, Benachteiligungsindex, Angebotsmiete; n = 434.
 
 23 % der geclusterten PLR (C3) sind zugleich laut und benachteiligt (**Mehrfachbelastung**).
 
-Ausgaben: `map_kmeans_cluster.png`, `kmeans_cluster_profiles.csv`, `kmeans_clusters.csv`, `kmeans_model_selection.png`
+Ausgaben: `map_kmeans_cluster.png`, `kmeans_cluster_profiles.csv`, `kmeans_clusters.csv`, `kmeans_elbow.png`
 
 ---
 
@@ -259,20 +231,19 @@ Ausgaben: `map_kmeans_cluster.png`, `kmeans_cluster_profiles.csv`, `kmeans_clust
 |---|---:|---:|
 | LDEN | 0,46 | ≤ 0,001 |
 | Benachteiligungsindex | 0,43 | ≤ 0,001 |
-| Angebotsmiete | 0,45 | ≤ 0,001 |
 | Residuen A1 | 0,47 | ≤ 0,001 |
-| Residuen A3 (mit Kontrollen) | 0,30 | ≤ 0,001 |
+| Residuen A2 (mit Kontrollen) | 0,30 | ≤ 0,001 |
 
-Alle Variablen sind stark räumlich geclustert. Die Kontrollvariablen senken die Autokorrelation der Residuen von 0,47 auf 0,30, beseitigen sie aber nicht. Das begründet die geclusterten Standardfehler. Räumliche Regressionsmodelle wären der nächste methodische Schritt, liegen aber außerhalb des Modulumfangs.
+Lärm und Benachteiligung sind stark räumlich geclustert: Benachbarte Planungsräume ähneln sich. Auch die Residuen der Regression sind räumlich abhängig (die Kontrollvariablen senken I von 0,47 auf 0,30). Die Beobachtungen sind also nicht völlig unabhängig, und die p-Werte der OLS-Regression sind eher zu optimistisch. Das ändert die Aussagen nicht: H1 ist schon ohne Korrektur nicht signifikant, und H2 ist mit p < 0,001 so deutlich, dass eine Korrektur daran nichts ändert (in der ausführlichen Version auf `fix/pca-mss-analysis` geprüft).
 
 ---
 
 ## 11. Karten und Visualisierung
 
-- `ergebnis_leitfrage.png`: Ergebnisgrafik mit Quintil-Boxplot, Anteil > 65 dB, Koeffizientenplot und Antworttext
+- `ergebnis_leitfrage.png`: Quintil-Boxplot (ANOVA), Anteil > 65 dB, Regressions-Scatterplot und Antworttext
 - `map_kmeans_cluster.png`: Berlin-Karte der Gebietstypen mit Bezirksgrenzen
-- `map_*.png`: Lärm, Anteil > 65 dB, Benachteiligungsindex, MSS-Klasse, Miete, S1–S4
-- `scatter_*.png`, `correlation_heatmap_{pearson,spearman}.png`, `boxplots.png`, `hist_*.png`, `pca_scree_ladungen.png`
+- `map_laerm_gesamt_lden_db.png`, `map_benachteiligungsindex.png`, `map_angebotsmiete_median_eur_m2.png`
+- `histogramme.png`, `korrelationsmatrix.png`, `pca_scree_ladungen.png`, `kmeans_elbow.png`
 
 ---
 
@@ -281,15 +252,16 @@ Alle Variablen sind stark räumlich geclustert. Die Kontrollvariablen senken die
 **Stärken**
 - Offizielle, verifizierte Quellen; Lärmaggregation unabhängig reproduziert
 - Benachteiligungsindex per PCA gebildet und gegen den amtlichen Index validiert
-- Räumliche Abhängigkeit geprüft und in der Inferenz berücksichtigt
-- Mehrere Lärmmaße, Mietschwellen und Mietjahre als Robustheitschecks
+- Methoden am Vorlesungsstoff orientiert und vollständig erklärbar
+- Räumliche Abhängigkeit mit Moran's I geprüft
 
 **Schwächen**
 - Querschnitt, unterschiedliche Datenjahre
 - Fassadenpunkte nicht bevölkerungsgewichtet
 - Mietfilter unterrepräsentiert Gebiete mit hohem Status
 - Wittenau-Namensvertauschung in der IBB-Tabelle ungeklärt
-- Residuen auch mit Kontrollen räumlich autokorreliert
+- Residuen räumlich abhängig → p-Werte eher zu optimistisch (Aussagen bleiben gültig)
+- Keine Robustheitschecks mit alternativen Lärmmaßen oder Mietschwellen (nur in der ausführlichen Version)
 
 ---
 
@@ -297,7 +269,7 @@ Alle Variablen sind stark räumlich geclustert. Die Kontrollvariablen senken die
 
 ```text
 aggregate_noise.py  -> WFS (3,8 Mio. Punkte) -> laermdaten_aggregiert.csv
-berlin_data_science.py -> Join -> PCA -> EDA -> Gruppenvergleich -> Regression
+berlin_data_science.py -> Join -> PCA -> Deskriptiv -> ANOVA -> Regression
                         -> K-Means -> Moran -> Karten -> ergebnis_leitfrage.png
 ```
 
@@ -313,12 +285,7 @@ Getestet mit Python 3.12 und den in `requirements.txt` gepinnten Versionen. Die 
 
 ## 14. Aufräumliste
 
-**Nicht mehr benötigt** (nach Sicherung löschbar):
-- `data/current/` (komplett, Duplikate bzw. alte Dateien)
-- `data/raw/laerm_strassen_lden.geojson` (keine Pegel)
-- `data/raw/laerm_fassadenpegel2022.geojson` (Wohngebäude, ungenutzt, 190 MB)
-- `data/raw/laerm_capabilities.xml` (nur Metadaten)
-- Veraltete Outputs aus dem alten Lauf: `outputs/correlation_heatmap.png`, `outputs/regression_laerm_erklart*.{txt,csv}`, `outputs/regression_angebotsmiete_erklart*.{txt,csv}`
+Erledigt am 24.11.2026: `data/current/`, `laerm_strassen_lden.geojson`, `laerm_fassadenpegel2022.geojson`, `laerm_capabilities.xml` und veraltete Outputs wurden gelöscht.
 
 **Unbedingt behalten** (werden vom Skript gelesen):
 - `data/raw/planungsraeume.geojson`, `sozialdaten.xlsx`, `mss2025_indexindikatoren_anteile_plr.xlsx`, `mss2025_indexindikatoren_zwerte_plr.xlsx`, `Mietdaten.xlsx`
@@ -338,9 +305,8 @@ Getestet mit Python 3.12 und den in `requirements.txt` gepinnten Versionen. Die 
 
 **Antwort auf die Leitfrage:**
 
-- **H1 nicht gestützt:** In Berlin gibt es auf Ebene der Planungsräume **keinen robusten linearen Zusammenhang** zwischen sozialer Benachteiligung und Lärm (+0,22 dB pro SD, p = 0,29 mit Kontrollen und räumlich geclusterten Standardfehlern).
-- **Nichtlineares Muster:** Die am wenigsten benachteiligten Gebiete sind etwa 2 dB leiser. Darüber hinaus gilt „je ärmer, desto lauter“ nicht, denn die am stärksten benachteiligten Großsiedlungen am Stadtrand sind vergleichsweise leise.
-- **Straßenverkehrslärm** zeigt eine schwache positive Tendenz (p = 0,09).
+- **H1 nicht gestützt:** In Berlin gibt es auf Ebene der Planungsräume **keinen signifikanten linearen Zusammenhang** zwischen sozialer Benachteiligung und Lärm (+0,22 dB pro SD, p = 0,15, auch mit Kontrollvariablen).
+- **Nichtlineares Muster (ANOVA p < 0,001):** Die am wenigsten benachteiligten Gebiete sind etwa 2 dB leiser. Darüber hinaus gilt „je ärmer, desto lauter“ nicht, denn die am stärksten benachteiligten Großsiedlungen am Stadtrand sind vergleichsweise leise.
 - **H2 gestützt:** Lauter ist teurer (+0,23 EUR/m² pro dB), benachteiligt ist günstiger (−2,09 EUR/m² pro SD). Das ist ein Lageeffekt und keine Kausalität.
 - **H3 gestützt:** Vier interpretierbare Gebietstypen. **23 % der PLR sind zugleich laut und benachteiligt** (v. a. Wedding, Nord-Neukölln, Schöneberg). Umweltungerechtigkeit ist also kein stadtweiter Trend, sondern ein **räumlich konzentriertes Problem bestimmter innerstädtischer Quartiere**.
-- Alle Größen sind stark räumlich geclustert; einfache OLS-Modelle erfassen die räumliche Struktur nicht vollständig.
+- Lärm und Benachteiligung sind stark räumlich geclustert (Moran's I ≈ 0,4–0,5). Die p-Werte der Regression sind daher eher zu optimistisch; an den Aussagen ändert das nichts.

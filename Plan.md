@@ -12,6 +12,17 @@
 
 ---
 
+## 0. Zwei Versionen
+
+| Branch | Inhalt |
+|---|---|
+| `fix/pca-mss-analysis` | Ausführliche Version: zusätzlich Spearman, Kruskal-Wallis, HC3-/Cluster-Standardfehler, VIF, Silhouette, Bartlett, Robustheitsmodelle (Median, Straßenlärm, Mietschwellen, Mieten 2022) |
+| `simplify-analysis` | **Vereinfachte Version** (dieser Branch): nur Vorlesungsmethoden (Standardisierung, PCA, ANOVA, multiple Regression, K-Means mit Elbow) plus Moran's I; gleiche Kernaussagen |
+
+In der vereinfachten Version entfallen: Spearman, Kruskal-Wallis, Bartlett-Test, HC3-/Cluster-Standardfehler, VIF, Silhouette, Robustheitsmodelle A4–A6, B1, Mietschwellen-/2022-Check, Einzelkarten S1–S4.
+
+---
+
 ## 1. Erledigt (Review vom 24.11.2026)
 
 ### Daten

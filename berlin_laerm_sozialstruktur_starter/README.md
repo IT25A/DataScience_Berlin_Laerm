@@ -54,31 +54,33 @@ und Anteile sind robuster und werden als Robustheitscheck verwendet.
 python berlin_data_science.py
 ```
 
-Ablauf und wichtigste Ausgaben in `outputs/`:
+Vereinfachte Version (Branch `simplify-analysis`), an den Vorlesungsstoff angepasst.
+Die ausführliche Version mit Robustheitschecks liegt auf `fix/pca-mss-analysis`.
 
 | Schritt | Methode | Ausgaben |
 |---|---|---|
 | Datenqualität | Join über PLR-ID, Mietfilter, Namensabgleich | `datenqualitaet.csv`, `pruefung_namensabweichungen_ibb.csv` |
 | PCA | S1–S4 standardisiert, PC1 = Benachteiligungsindex (z) | `pca_bericht.txt`, `pca_loadings.csv`, `pca_scree_ladungen.png` |
-| EDA | Deskriptive Statistik, Pearson/Spearman | `descriptive_statistics.csv`, `correlation_heatmap_*.png`, `pairwise_correlations.csv` |
-| Gruppenvergleich | Kruskal-Wallis, ANOVA nach Statusklasse/Quintil | `gruppenvergleich_*.csv`, `boxplot_laerm_nach_sozialer_lage.png` |
-| Regression | OLS mit HC3- und geclusterten SE (Prognoseraum) | `regression_uebersicht.csv`, `regression_*.txt`, `vif_values.csv`, `regression_robustheit_miete.csv` |
-| K-Means | Lärm, Benachteiligung, Miete (standardisiert) | `kmeans_*.csv`, `kmeans_*.png`, `map_kmeans_cluster.png` |
-| Moran's I | Queen-Nachbarschaft, 999 Permutationen | `morans_i_uebersicht.csv` |
+| Deskriptiv | Kennzahlen, Histogramme, Korrelationsmatrix | `descriptive_statistics.csv`, `histogramme.png`, `korrelationsmatrix.png` |
+| Hypothesentest | ANOVA: Lärm nach Quintilen des Index | `anova_ergebnis.txt`, `anova_profile.csv` |
+| Regression | Multiple lineare Regression (OLS) | `regression_uebersicht.csv`, `regression_*.txt` |
+| K-Means | Lärm, Benachteiligung, Miete (standardisiert), Elbow | `kmeans_*.csv`, `kmeans_elbow.png`, `map_kmeans_cluster.png` |
+| Moran's I | Queen-Nachbarschaft, 999 Permutationen | `morans_i.csv` |
+| Karten | Lärm, Index, Miete, Cluster | `map_*.png` |
 | Ergebnis | Antwort auf die Leitfrage | `ergebnis_leitfrage.png`, `ergebnis_zusammenfassung.txt` |
 
 ## 5. Wissenschaftliche Hinweise
 
 - Benachteiligungsindex = PC1 der MSS-Indikatoren S1–S4; höhere Werte = stärkere Benachteiligung.
-- Regressionen: HC3 korrigiert nur Heteroskedastizität. Da Lärm und Residuen räumlich
-  autokorreliert sind (Moran's I), werden zusätzlich nach Prognoseraum geclusterte
-  Standardfehler berichtet; diese sind für die Interpretation maßgeblich.
-- Kontrollvariablen: log(1 + Einwohnerdichte) und Lage (Innere/Äußere Stadt laut LOR).
-- Mietgebiete mit weniger als 21 Inseraten werden auf fehlend gesetzt (IBB-Grenze);
-  Robustheit mit 10/21/30 Inseraten und Mietjahr 2022 wird geprüft.
+- Regression: Modell A1 (Lärm ~ Index), A2 (+ Kontrollen), B (Miete ~ Lärm + Index + Kontrollen).
+  Kontrollvariablen: log(1 + Einwohnerdichte) und Lage (Innere/Äußere Stadt laut LOR).
+- Moran's I zeigt, dass benachbarte Planungsräume sich ähneln. Die p-Werte der
+  Regression sind daher eher zu optimistisch; die Hauptaussagen (H1 nicht signifikant,
+  H2 hochsignifikant) bleiben davon unberührt.
+- Mietgebiete mit weniger als 21 Inseraten werden auf fehlend gesetzt (IBB-Grenze).
 - Mietfilter verzerrt die Stichprobe leicht: Gebiete mit hohem Status (wenige
   Mietinserate) sind im Mietmodell unterrepräsentiert.
-- K-Means: k = 4 begründet gesetzt (siehe Kommentar in der Konfiguration).
+- K-Means: k = 4 begründet gesetzt (Elbow + Interpretierbarkeit, siehe Konfiguration).
 - Aggregierte PLR-Daten erlauben keine individuellen Aussagen (ökologischer Fehlschluss).
 - Zeitstände: Lärm 2022, MSS 2025 (Daten 31.12.2024), Mieten 2025.
 - Keine Kausalitätsaussagen aus Querschnittskorrelationen ableiten.
