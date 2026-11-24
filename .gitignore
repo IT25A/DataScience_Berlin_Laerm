@@ -35,9 +35,6 @@ data/raw/*.geojson
 data/raw/*.gpkg
 data/raw/*.shp
 data/processed/*
-
-# Projekt-Rohdaten
-berlin_laerm_sozialstruktur_starter/data/current/
 berlin_laerm_sozialstruktur_starter/data/raw/*.xlsx
 berlin_laerm_sozialstruktur_starter/data/raw/*.csv
 berlin_laerm_sozialstruktur_starter/data/raw/*.xml
@@ -45,8 +42,9 @@ berlin_laerm_sozialstruktur_starter/data/raw/*.tif
 berlin_laerm_sozialstruktur_starter/data/raw/*.tiff
 berlin_laerm_sozialstruktur_starter/data/raw/*.geojson
 berlin_laerm_sozialstruktur_starter/data/raw/*.gpkg
+berlin_laerm_sozialstruktur_starter/data/raw/*.shp
 berlin_laerm_sozialstruktur_starter/data/**
-berlin_laerm_sozialstruktur_starter/data/processed/
+berlin_laerm_sozialstruktur_starter/data/processed/*
 
 # Outputs (Ergebnisse, Diagramme)
 outputs/*
