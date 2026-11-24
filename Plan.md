@@ -1,195 +1,87 @@
-# Berlin Environmental Justice Data-Science-Projekt - Plan & Status
+# Berlin Environmental Justice – Plan & Status
 
-## Aktualisiert: 23.11.2026
+## Aktualisiert: 24.11.2026
 
-## 1. Forschungsfrage und Hypothesen
+**Titel:** Quantifying Environmental Justice: Eine räumliche Data-Science-Analyse von Verkehrslärm, sozialer Benachteiligung und Wohnkosten in Berlin
 
-### Projekttitel
-**Quantifying Environmental Justice: Eine räumliche Data-Science-Analyse von Verkehrslärm, sozialer Deprivation und Wohnkosten in Berlin.**
+**Leitfrage:** Sind Berliner Planungsräume mit einer ungünstigeren sozialen Lage stärker von Lärm betroffen, und wie hängen Lärm, soziale Lage und Angebotsmieten zusammen?
 
-### Hauptforschungsfrage
-Sind sozial benachteiligte Berliner Planungsräume stärker von Verkehrslärm betroffen, und wie hängen Lärmbelastung, soziale Deprivation und Angebotsmieten zusammen?
-
-### Hypothesen
-- **H1 – Umweltgerechtigkeit**: Planungsräume mit höherer sozialer Deprivation weisen höhere Lärmbelastungen auf.
-- **H2 – Lärm und Mieten**: Lärmbelastung hängt mit den Angebotsmieten zusammen; die Richtung kann durch Lageeffekte beeinflusst werden.
-- **H3 – Gebietstypen**: Berliner Planungsräume lassen sich anhand von Lärm, Deprivation und Mieten in unterschiedliche Gebietstypen gruppieren.
+- **H1:** Benachteiligte Planungsräume weisen höhere Lärmwerte auf.
+- **H2:** Lärm hängt mit den Angebotsmieten zusammen (Lageeffekte möglich).
+- **H3:** Planungsräume lassen sich nach Lärm, Benachteiligung und Miete in interpretierbare Gebietstypen gruppieren.
 
 ---
 
-## 2. Aktueller Datenstatus
+## 1. Erledigt (Review vom 24.11.2026)
 
-### Vorhandene Daten in data/raw/
-| Datei | Status | Beschreibung |
-|-------|--------|--------------|
-| `planungsraeume.geojson` | ✅ heruntergeladen | **NEU**: GeoJSON mit Polygon-Geometrie der 542 Planungsräume (von ODIS Berlin) |
-| `laerm_strassen_lden.geojson` | ✅ heruntergeladen | **NEU**: Lärm-Linien (Straßen/U-Bahn) mit L_DEN Werten (5762 Features) |
-| `laerm_capabilities.xml` | ✅ heruntergeladt | WFS-Capabilities für Lärmkarten |
-| (Alte Daten in data/current/) | verschoben | Alte Daten in data/current/ verschoben |
+### Daten
+- [x] MSS 2025 **Tabelle 2.1** (Einzelindikatoren S1–S4) und **Tabelle 3** (z-Werte, amtlicher Status-Index) ergänzt
+- [x] Lärm neu aggregiert: zusätzlich Median-LDEN und Anteil Fassaden > 65 dB LDEN / > 55 dB LN (alte Werte identisch reproduziert)
+- [x] Namensabgleich IBB ↔ Geometrie automatisiert (`outputs/pruefung_namensabweichungen_ibb.csv`)
+- [x] Excel-Import robust über PLR-ID statt fester Kopfzeilen (Fußnotenzeilen werden ignoriert)
+- [x] Dateiname `Mietdaten.xlsx` korrekt (vorher `mietdaten.xlsx`, brach unter Linux)
 
-### Vorhandene Daten in data/current/ (Original-Daten)
-| Datei | Status | Beschreibung |
-|-------|--------|--------------|
-| `planungsraume.csv` | ✅ vorhanden | Tabellarische Daten der Planungsräume (plr_id, plr_name, etc.) - KEINE GEOMETRIE |
-| `sozialdaten.xlsx` | ✅ vorhanden | Sozialdaten (Arbeitslosigkeit, Transferbezug, Kinderarmut) |
-| `Mietdaten.xlsx` | ✅ vorhanden | Mietdaten (Median-Angebotsmiete, Fallzahlen) |
-| `strassenverteilung.csv` | ⚠️ vorhanden | Straßendaten mit Koordinaten (VP-Knoten) - nicht direkt nutzbar für Lärm |
-| `laermdate.GetCapabilities.xml` | ⚠️ vorhanden | Metadaten für Lärm-WFS-Dienst (keine eigentlichen Lärmwerte) |
+### Methodik
+- [x] **PCA** über S1–S4 → PC1 = Benachteiligungsindex (80,7 % Varianz, r = 0,998 mit amtlichem MSS-Status-Index)
+- [x] Ordinaler Score 1–4 durch stetigen Index ersetzt
+- [x] EDA nach der PCA, mit allen Variablen; Pearson **und** Spearman; Boxplots je Variable
+- [x] Gruppenvergleich (Kruskal-Wallis, ANOVA) nach MSS-Klasse und Index-Quintil
+- [x] Regressionen mit nach Prognoseraum **geclusterten Standardfehlern** + Kontrollen (log Dichte, Innere Stadt)
+- [x] Robustheit: Median-LDEN, Anteil > 65 dB, nur Straßenlärm, Mietschwellen 10/21/30, Mieten 2022
+- [x] VIF korrekt (mit Konstante, auf Modellstichprobe)
+- [x] K-Means: k = 4 begründet, automatische Clusterbenennung, Elbow-/Silhouette-Plot
+- [x] Moran's I mit festem Seed, inkl. Miete und Residuen beider Lärmmodelle
+- [x] Berlin-Karte der Cluster (`map_kmeans_cluster.png`) und Ergebnisgrafik (`ergebnis_leitfrage.png`)
 
-### Fehlende Daten (kritisch)
-1. ~~**Geometrie für Planungsräume**~~: ✅ **HERUNTERGELADEN**
-   - `planungsraeume.geojson` (542 Planungsräume mit Polygon-Geometrie)
-   - Spalten: plr_id, plr_name, bzr_id, bzr_name, pgr_id, pgr_name, bez, finhalt, stadtraum_id, stadtraum_name, stand
-
-2. **Lärmdaten**: ⚠️ **AGGREGIERT, aber nur als Proxy (Linienlänge)**
-   - `laermdaten_aggregiert.csv` ✅ in data/processed/ erstellt
-   - `laermdaten_aggregiert.geojson` ✅ in data/processed/ erstellt
-   - **Problem**: Die heruntergeladenen Lärm-Linien enthalten keine dB-Werte, nur Geometrie
-   - **Aktuelle Lösung**: Verwendet Linienlänge als Proxy für Lärmexposition (nicht in dB!)
-   - **Bessere Lösung**: GeoTIFF-Raster oder Fassadenpegel-Daten herunterladen (siehe unten)
-
-3. **Sozialdaten (MSS 2025)**: ✅ **VORHANDEN (aus data/current/)**
-   - `sozialdaten.xlsx` - muss noch auf korrekte Spaltennamen geprüft werden
-   - **Aktuelle Version**: https://www.berlin.de/sen/stadt/stadtdaten/stadtwissen/monitoring-soziale-stadtentwicklung/bericht-2025/tabellen-der-index-indikatoren-zum-bericht-2025/
-
-4. **Mietdaten (IBB 2025)**: ✅ **VORHANDEN (aus data/current/)**
-   - `Mietdaten.xlsx` - muss noch auf korrekte Spaltennamen geprüft werden
-   - **Aktuelle Version**: https://www.ibb.de/de/ueber-uns/publikationen/wohnungsmarktbericht/2025.html
+### Technik
+- [x] Toter Code entfernt (alte PCA-Platzhalter, Decision Tree, Raster-Zweig, ungenutzte Imports)
+- [x] Paketversionen in `requirements.txt` fest gepinnt; `rasterio`/`rasterstats` entfernt
+- [x] Qualitätsbericht nach dem Mietfilter (`outputs/datenqualitaet.csv`)
 
 ---
 
-## 3. Vorgenommene Code-Anpassungen (basierend auf Plan.md-Kritik)
+## 2. Offene Punkte (nach Priorität)
 
-### ✅ Priorität 1: PCA ausschließlich für soziale Indikatoren
-- **Änderung**: Neue Funktion `run_pca_benachteiligungsindex()` verwendet nur `arbeitslosenanteil_prozent`, `transferbezugsanteil_prozent`, `kinderarmut_prozent`
-- **Ergebnis**: PC1 wird als `benachteiligungsindex` gespeichert
-- **Invertierung**: Wenn PC1 negativ mit Deprivation korreliert, wird der Index invertiert
+### Priorität 1 – vor der Präsentation
+- [ ] **Ergebnisse interpretieren und Folien bauen** (Kernaussagen siehe Projekt_Recap §16)
+- [ ] **Wittenau Mitte/Süd** (`12500926`, `12500930`): In der IBB-Tabelle vertauschte Namen prüfen (IBB-PDF vergleichen); im Zweifel beide PLR im Mietmodell ausschließen und als Limitation nennen
+- [ ] Limitationen-Folie: Fassadenpunkte nicht bevölkerungsgewichtet, Mietfilter unterrepräsentiert Gebiete mit hohem Status, Querschnitt, unterschiedliche Datenjahre
+- [ ] Quellenverzeichnis mit Abrufdatum (WFS-Abruf 24.11.2026)
 
-### ✅ Priorität 1: K-Means mit Deprivationsindex und nachvollziehbarer k-Auswahl
-- **Änderung**: Neue Funktion `run_clustering()` verwendet `laerm_gesamt_lden_db`, `benachteiligungsindex`, `angebotsmiete_median_eur_m2`
-- **k-Auswahl**: Automatisch basierend auf Silhouette Score (vermeidet k=2, wenn besserer Score existiert)
+### Priorität 2 – wenn Zeit bleibt
+- [ ] Bevölkerungsgewichtung: Fassadenpunkte auf Wohngebäude beschränken (Layer `ab_wohngebaeude2022` ist im WFS vorhanden)
+- [ ] LISA-Karte (lokales Moran's I) für Hot-/Coldspots von Lärm und Benachteiligung
 
-### ✅ Priorität 1: Regressionen an Hypothesen angepasst
-- **Änderung**: `run_regressions()` verwendet `benachteiligungsindex` statt einzelner sozialer Variablen
-- **Modell A**: Lärm erklärt durch Deprivation (+ optionale Kontrollvariablen)
-- **Modell B**: Miete erklärt durch Lärm und Deprivation (+ optionale Kontrollvariablen)
-- **Neu**: VIF-Werte (Variance Inflation Factor) werden berechnet und exportiert
-
-### ✅ Priorität 2: Moran's I für Deprivationsindex und Residuen
-- **Änderung**: `run_morans_i()` prüft auch `benachteiligungsindex` (statt nur einzelne soziale Variablen)
-- **Neu**: Parameter für Regressionsresiduen vorbereitet (wird später ergänzt)
-
-### ✅ Optional: Decision Tree auskommentiert
-- **Änderung**: `run_decision_tree()` ist in `main()` auskommentiert
-
-### ✅ Sonstige Anpassungen
-- **CSV-Unterstützung**: `load_boundaries()` kann jetzt auch CSV ohne Geometrie laden
-- **Geometrie-Prüfung**: Moran's I und Kartenexport werden übersprungen, wenn keine Geometrie vorhanden
-- **Karten**: `benachteiligungsindex` zur Liste der Kartenvariablen hinzugefügt
+### Bewusst NICHT geplant (Umfang des Moduls)
+- Räumliche Regressionsmodelle (Spatial Lag/Error) – nur als Ausblick erwähnen
+- Streamlit-Dashboard – statische Karten reichen für die Präsentation
+- Decision Tree, Multi-Jahr-Analyse
 
 ---
 
-## 4. Nächste Schritte
+## 3. Aufgabenverteilung (Vorschlag)
 
-### Schritt 1: Geometrie herunterladen (kritisch)
-```
-1. https://daten.odis-berlin.de/ besuchen
-2. Nach "LOR Planungsräume" suchen
-3. GeoPackage oder GeoJSON herunterladen
-4. Als planungsraeume.gpkg oder planungsraeume.geojson in data/raw/ speichern
-5. BOUNDARIES_FILE in berlin_data_science.py aktualisieren
-```
+| Person | Aufgabe |
+|---|---|
+| 1 | Daten & Quellen: Quellenverzeichnis, Wittenau-Prüfung, Datenqualitätsfolie |
+| 2 | PCA & EDA: Index erklären (Ladungen, Validierung), deskriptive Folien |
+| 3 | Regression & Robustheit: Koeffizientenplot, Interpretation H1/H2 |
+| 4 | Cluster & Karten: Gebietstypen, Moran's I, Ergebnisfolie |
 
-### Schritt 2: Lärmdaten beschaffen (kritisch)
-**Option A - WFS-Dienst auswerten:**
-- Die XML-Datei enthält Metadaten für den WFS-Dienst
-- Python-Skript schreiben, um Lärmwerte pro Planungsraum abzurufen
-- Als laermdaten.csv speichern
+---
 
-**Option B - GeoTIFF-Raster:**
-- Lärmkarten 2022 als GeoTIFF herunterladen
-- Mit rasterstats zonal pro Planungsraum aggregieren
-- `NOISE_LDEN_TIF` in berlin_data_science.py konfigurieren
+## 4. Ausführen
 
-### Schritt 3: Spaltennamen prüfen und anpassen
-- Sozialdaten und Mietdaten öffnen
-- Spaltennamen in `SOCIAL_COLUMN_MAP` und `RENT_COLUMN_MAP` anpassen
-
-### Schritt 4: Analyse durchführen
 ```bash
 cd berlin_laerm_sozialstruktur_starter
-source .venv/bin/activate  # oder .venv\Scripts\activate auf Windows
+python aggregate_noise.py        # nur nötig, wenn Lärmdaten neu geladen werden sollen
 python berlin_data_science.py
 ```
 
-### Schritt 5: Dashboard (optional, Priorität 2)
-- Streamlit und Plotly zu requirements.txt hinzufügen
-- app.py mit interaktiver Karte erstellen
+## 5. Hinweise zur Interpretation
 
----
-
-## 5. Empfohlene Aufgabenverteilung (4 Personen, 2-3 Wochen)
-
-| Person | Hauptverantwortung | Ergebnis |
-|--------|-------------------|----------|
-| 1 | Datenbeschaffung (Geometrie, Lärm) + Datenqualität | Rohdaten, Quellenverzeichnis, Variablendokumentation |
-| 2 | Datenaufbereitung und Spaltenzuordnung | Sauberer gemeinsamer PLR-Datensatz |
-| 3 | PCA, EDA und Regression | Index, statistische Ergebnisse, Diagramme |
-| 4 | K-Means, Moran's I und Dashboard | Cluster, räumliche Analyse, Streamlit |
-
----
-
-## 6. Wochenplan
-
-### Woche 1 – Datenbasis fertigstellen
-- [ ] Geometrie für Planungsräume herunterladen
-- [ ] Lärmdaten beschaffen (WFS oder Raster)
-- [ ] Spaltennamen prüfen und anpassen
-- [ ] Erste deskriptive Statistien
-
-### Woche 2 – Data Science
-- [ ] PCA und Deprivationsindex
-- [ ] Pearson und Spearman Korrelationen
-- [ ] Beide Regressionsmodelle
-- [ ] K-Means und Clusterprofile
-- [ ] Erste Dashboard-Version (optional)
-
-### Woche 3 – Fertigstellung
-- [ ] Moran's I (inkl. Residuen)
-- [ ] Regressionsresiduen untersuchen
-- [ ] Interaktive Karte fertigstellen (optional)
-- [ ] Ergebnisse kritisch interpretieren
-- [ ] Präsentation vorbereiten
-
----
-
-## 7. Qualität der Daten
-
-### Planungsraume.csv
-- **Format**: CSV mit 543 Zeilen (Planungsräume)
-- **Spalten**: plr_id, plr_name, bzr_id, bzr_name, pgr_id, pgr_name, bez, finhalt, stadtraum_id, stadtraum_name, stand
-- **Qualität**: Gut (vollständige IDs und Namen)
-- **Problem**: Keine Geometrie → keine räumlichen Analysen möglich
-
-### Sozialdaten.xlsx
-- **Format**: Excel-Datei
-- **Qualität**: Muss noch geprüft werden (Spaltennamen)
-
-### Mietdaten.xlsx
-- **Format**: Excel-Datei
-- **Qualität**: Muss noch geprüft werden (Spaltennamen, Fallzahlen)
-
-### Strassenverteilung.csv
-- **Format**: CSV mit 43.509 Zeilen (Straßensegmente)
-- **Spalten**: Straßenschlüssel, Straßennamen, Koordinaten (VP-Knoten), Länge, etc.
-- **Qualität**: Für Lärmanalyse nicht direkt nutzbar (es fehlen Lärmpegel)
-
----
-
-## 8. Hinweise zur wissenschaftlichen Interpretation
-
-- **Ökologischer Fehlschluss**: Ergebnisse gelten auf Gebietsebene, nicht für Individuen
-- **Korrelation ≠ Kausalität**: Zusammenhänge sind statistisch, nicht kausal
-- **Dezibel-Mittelung**: Wenn Raster verwendet werden, ist der arithmetische Mittelwert nicht identisch mit einem energetischen Mittelwert
-- **Mietdatenqualität**: Angebotsmieten ≠ tatsächliche Mietkosten der dort lebenden Haushalte
-- **Zeitstände**: Dokumentieren (Lärm 2022, MSS 2025, Mieten 2025)
+- Ökologischer Fehlschluss: Aussagen gelten für Gebiete, nicht für Personen
+- Korrelation ≠ Kausalität
+- p-Werte aus den Modellen mit geclusterten Standardfehlern sind maßgeblich (räumliche Autokorrelation)
+- Angebotsmieten ≠ tatsächlich gezahlte Mieten
+- Zeitstände: Lärm 2022, MSS 2025 (31.12.2024), Mieten 2025

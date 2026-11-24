@@ -1,6 +1,6 @@
 # Environmental Justice in Berlin – Projekt-Rekapitulation
 
-**Stand:** 23. November 2026
+**Stand:** 24. November 2026 (überarbeitet nach Code- und Datenreview)
 
 **Projekt:** Quantifying Environmental Justice: Eine räumliche Data-Science-Analyse von Verkehrslärm, sozialer Deprivation und Wohnkosten in Berlin
 
@@ -27,8 +27,8 @@ Die zentrale Hypothese lautet:
 Das Projekt ist als Querschnittanalyse aufgebaut. Die Daten stammen nicht alle aus exakt demselben Jahr:
 
 - Lärm: 2022
-- Soziale Lage: MSS 2025, Datenstand überwiegend 31.12.2024
-- Mieten: IBB 2025
+- Soziale Lage: MSS 2025, Datenstand 31.12.2024
+- Mieten: IBB 2025 (Robustheitscheck mit IBB 2022)
 
 Eine zeitlich exakte Längsschnittanalyse wäre deshalb nicht möglich. Die Ergebnisse beschreiben räumliche Zusammenhänge zum jeweiligen Datenstand.
 
@@ -39,29 +39,30 @@ Eine zeitlich exakte Längsschnittanalyse wäre deshalb nicht möglich. Die Erge
 Der Analyseablauf ist bewusst mehrstufig aufgebaut:
 
 1. Datenbeschaffung
-2. Daten- und Geometrieprüfung
+2. Daten- und Geometrieprüfung (inkl. Namensabgleich)
 3. Vereinheitlichung der LOR-Planungsraum-ID
 4. Verknüpfung von Lärm, sozialer Lage und Mietdaten
-5. Deskriptive Statistik
-6. Pearson- und Spearman-Korrelation
-7. robuste lineare Regression
-8. K-Means-Clustering
-9. räumliche Autokorrelation nach Moran
-10. Kartenexport und Diagrammerstellung
+5. **PCA** über die vier MSS-Status-Indikatoren → Benachteiligungsindex
+6. Deskriptive Statistik
+7. Pearson- und Spearman-Korrelation
+8. Gruppenvergleich (Kruskal-Wallis, ANOVA)
+9. Lineare Regression mit robusten bzw. räumlich geclusterten Standardfehlern
+10. K-Means-Clustering
+11. Räumliche Autokorrelation nach Moran
+12. Karten und Ergebnisgrafik
 
 Die Kombination dieser Methoden entspricht dem Umfang eines Data-Science-Moduls:
 
 - Erwartungswert, Median, Varianz und Standardabweichung
 - Verteilungen und Ausreißer
-- Korrelationsanalyse
+- Standardisierung und Hauptkomponentenanalyse
+- Korrelationsanalyse und nichtparametrische Tests
 - lineare Regression
-- Standardisierung
 - K-Means-Clustering
-- räumliche Abstände und Nachbarschaften
-- räumliche Statistik
+- räumliche Nachbarschaften und räumliche Statistik
 - Kartendarstellung
 
-Der Wissenschaftlerische Kern liegt nicht in der Anzahl der Algorithmen, sondern darin, dass Datenqualität, räumliche Einheit, Aggregation und Limitationen sauber dokumentiert werden.
+Der wissenschaftliche Kern liegt nicht in der Anzahl der Algorithmen, sondern darin, dass Datenqualität, räumliche Einheit, Aggregation und Limitationen sauber dokumentiert werden.
 
 ---
 
@@ -69,680 +70,277 @@ Der Wissenschaftlerische Kern liegt nicht in der Anzahl der Algorithmen, sondern
 
 ## 3.1 Berliner LOR-Planungsräume
 
-**Datei im Projekt:**  
-`data/raw/planungsraeume.geojson`
+**Datei:** `data/raw/planungsraeume.geojson` (ODIS Berlin / Geoportal Berlin)
 
-**Eigenschaften:**
-
-- 542 Planungsräume
-- Polygone
-- achtstellige LOR-ID
-- CRS EPSG:25833
+- 542 Planungsräume, Polygone, achtstellige LOR-ID, CRS EPSG:25833
 - 542 gültige und eindeutige Geometrien
-- keine leeren oder ungültigen Polygone
-- Gebietsstand laut Datei: 2021
-
-Die Datei enthält neben Geometrie auch:
-
-- `plr_id`
-- `plr_name`
-- Bezirks-ID und Bezirksname
-- Prognoserraum-ID und Prognoserraumname
-- Bezirk
-- Stadtteil- beziehungsweise Raumzuordnung
-- Datenstand
-
-Diese Daten bilden die gemeinsame räumliche Ebene des Projekts.
-
-**Quellen zur Beschaffung:**
-
-- ODIS Berlin: https://daten.odis-berlin.de/
-- Berliner Geoportal: https://gdi.berlin.de/
+- Gebietsstand laut Datei: 2021; MSS nutzt LOR 01/2023 – alle 542 IDs und Namen stimmen überein
+- enthält zusätzlich Prognoseraum (`pgr_id`, 58 Gruppen), Bezirk und `stadtraum_name` (Innere/Äußere Stadt)
 
 ---
 
 ## 3.2 Strategische Lärmkarte 2022
 
-**Offizieller WFS:**  
-https://gdi.berlin.de/services/wfs/ua_stratlaerm_2022
+**Offizieller WFS:** https://gdi.berlin.de/services/wfs/ua_stratlaerm_2022, Feature-Type `ua_stratlaerm_2022:aa_fp_gesamt2022`
 
-**Feature-Type:**  
-`ua_stratlaerm_2022:aa_fp_gesamt2022`
+- 3.799.746 Fassadenpegelpunkte, davon 3.799.712 per räumlichem Join den 542 PLR zugeordnet (34 liegen exakt auf Grenzen)
+- Felder `ges_den`, `ges_n` (Gesamt), `str_den`, `str_n` (Straße), `sch_*` (Tram/U-Bahn oberirdisch), `flg_*` (Flug)
+- Aggregation wurde im Review stichprobenartig direkt gegen den WFS nachgerechnet und exakt reproduziert
 
-**Abgerufene Hauptfelder:**
+**Kennzahlen pro Planungsraum** (`data/processed/laermdaten_aggregiert.csv`):
 
-- `importid`
-- `x`
-- `y`
-- `ges_den`: Gesamt-LDEN in dB(A)
-- `ges_n`: Gesamt-LN in dB(A)
-- `str_den`: Straßenverkehr-LDEN
-- `str_n`: Straßenverkehr-LN
-- `sch_den`: Straßenbahn und oberirdische U-Bahn
-- `sch_n`: Nachtwert für Straßenbahn und oberirdische U-Bahn
-- `flg_den`: Flugverkehr-LDEN
-- `flg_n`: Flugverkehr-LN
+| Kennzahl | Mittelwert | Min | Max |
+|---|---:|---:|---:|
+| LDEN energetisch gemittelt | 57,3 dB | 46,4 | 73,2 |
+| LDEN Median der Fassaden | 47,3 dB | 34,9 | 68,5 |
+| Anteil Fassaden > 65 dB LDEN | 6,5 % | 0 | 100 |
 
-Der WFS enthält 3.799.746 Fassadenpegelpunkte.
-
-Die Punkte wurden per räumlichem Join den 542 Planungsraum-Polygonen zugeordnet.
-
-**Aggregierte Projektdateien:**
-
-- `data/processed/laermdaten_aggregiert.csv`
-- `data/processed/laermdaten_aggregiert.geojson`
-
-**Ergebnisqualität:**
-
-- alle 542 Planungsräume besitzen einen Gesamt-LDEN-Wert
-- Gesamt-LDEN-Mittelwert: 57,33 dB(A)
-- Gesamt-LDEN-Minimum: 46,41 dB(A)
-- Gesamt-LDEN-Median: 57,37 dB(A)
-- Gesamt-LDEN-Maximum: 73,25 dB(A)
-
-Die Dezibelwerte wurden **energetisch gemittelt**:
+Energetische Mittelung:
 
 \[
-L_{\text{PLR}} = 10 \cdot \log_{10}\left(
-\frac{1}{n}\sum_{i=1}^{n}10^{L_i/10}
-\right)
+L_{\text{PLR}} = 10 \cdot \log_{10}\left(\frac{1}{n}\sum_{i=1}^{n}10^{L_i/10}\right)
 \]
 
-Dies ist wichtig, weil ein einfacher arithmetischer Mittelwert von Dezibelwerten nicht den physikalischen Gesamtlärm korrekt repräsentiert.
-
-Die Daten sind damit deutlich stärker als die zuvor verwendeten Straßennetzlängen oder ein Linienlängen-Proxy. Die Aggregation ist aber weiterhin kein individuelles Expositionsmaß für Bewohnerinnen und Bewohner. Jeder Punkt repräsentiert einen gemessenen beziehungsweise bewerteten Fassadenpunkt, nicht eine Person oder einen Haushalt.
-
-**WFS-Quelle:**
-
-- [Berliner Umweltatlas – Strategische Lärmkarten 2022](https://www.berlin.de/umweltatlas/verkehr-laerm/laermbelastung/2022/download/)
-- [WFS Capabilities](https://gdi.berlin.de/services/wfs/ua_stratlaerm_2022)
+**Wichtig:** Über verschiedene Fassaden gemittelt wird der energetische Mittelwert von den lautesten Fassaden dominiert (Beispiel Hansaviertel: energetisch 73,0 dB, Median 63,8 dB). Deshalb werden Median und der Anteil der Fassaden über dem Auslösewert der Lärmaktionsplanung (65 dB LDEN) als Robustheitsmaße mitgeführt. Fassadenpunkte sind kein bevölkerungsgewichtetes Expositionsmaß; sie liegen auch an Nicht-Wohngebäuden (z. B. Pankower Tor mit 0 Einwohnern).
 
 ---
 
-## 3.3 MSS-Sozialdaten
+## 3.3 MSS-Sozialdaten 2025
 
-**Datei im Projekt:**  
-`data/raw/sozialdaten.xlsx`
+**Quelle:** https://www.berlin.de/sen/stadt/stadtdaten/stadtwissen/monitoring-soziale-stadtentwicklung/bericht-2025/tabellen-der-index-indikatoren-zum-bericht-2025/
 
-**Tabellenblatt:**  
-`1.SDI_PLR_MSS2025`
+| Datei | Tabelle | Inhalt |
+|---|---|---|
+| `sozialdaten.xlsx` | 1 | Einwohner, Status-Klasse (1–4), Dynamik-Klasse |
+| `mss2025_indexindikatoren_anteile_plr.xlsx` | 2.1 | S1 Arbeitslosigkeit, S2 Alleinerziehende, S3 Transferbezug, S4 Kinderarmut (in %) |
+| `mss2025_indexindikatoren_zwerte_plr.xlsx` | 3 | z-Werte und stetiger amtlicher Status-Index (nur zur Validierung) |
 
-**Offizielle Datenquelle:**  
-https://www.berlin.de/sen/stadt/stadtdaten/stadtwissen/monitoring-soziale-stadtentwicklung/bericht-2025/tabellen-der-index-indikatoren-zum-bericht-2025/
+**Korrektur gegenüber der früheren Fassung:** Die Einzelindikatoren sind offiziell verfügbar (Tabelle 2.1). Der frühere ordinale Score (1–4) wurde durch einen PCA-Index ersetzt.
 
-Die Datei enthält:
-
-- 542 Planungsräume
-- 542 eindeutige IDs
-- Einwohnerzahl
-- Statusindex
-- Statuskategorie
-- Dynamikkategorie
-- kombinierte Status-Dynamik-Klasse
-
-Die vorhandene Datei enthält nicht die ursprünglich angenommenen Einzelindikatoren:
-
-- Arbeitslosigkeit
-- Transferbezugsquote
-- Kinderarmut
-
-Daher wurde keine PCA über diese drei Einzelindikatoren berechnet.
-
-Im aktuellen Projekt wird stattdessen der MSS-Status als Deprivationsvariable verwendet.
-
-Die Kategorien wurden in einen ordinalen Score umgewandelt:
-
-| MSS-Kategorie | Deprivationswert |
-|---|---:|
-| Hoch | 1 |
-| Mittel | 2 |
-| Niedrig | 3 |
-| Sehr niedrig | 4 |
-
-Die Kategorie wirkt hier als vereinfachter Deprivationsindikator. Höhere Werte bedeuten eine ungünstigere soziale Lage.
-
-**Qualität:**
-
-- 542 gültige Planungsraumzeilen
-- 542 eindeutige IDs
-- 7 fehlende Statuswerte
-- 535 Planungsräume in der Deprivations-Lärm-Regression
-
-Die Daten entsprechen der vorliegenden offiziellen MSS-Tabellenstruktur. Für eine wissenschaftlich differenzierte PCA wären einzelne soziale Kontextindikatoren notwendig.
+- 535 PLR mit Werten; 7 PLR ohne Werte sind vom MSS ausgeschlossen (0–1.221 Einwohner, z. B. Pankower Tor, Gewerbegebiet Bitterfelder Straße) – korrekt
 
 ---
 
 ## 3.4 IBB-Angebotsmieten
 
-**Datei im Projekt:**  
-`data/raw/Mietdaten.xlsx`
+**Datei:** `data/raw/Mietdaten.xlsx`, Blätter `Planungsräume_2025` (Haupt) und `Planungsräume_2022` (Robustheit)
+**Quelle:** https://www.ibb.de/de/ueber-uns/publikationen/wohnungsmarktbericht/2025.html
 
-**Tabellenblatt:**  
-`Planungsräume_2025`
+- 522 PLR mit Median, 20 ohne Inserate („keine Daten“)
+- 88 PLR mit < 21 Inseraten → in der Hauptanalyse auf fehlend gesetzt (IBB-eigene Repräsentativitätsgrenze) → **434 PLR**
+- **Selektionseffekt:** Von den 86 PLR mit hohem Status fehlen 39 im Mietmodell (Einfamilienhausgebiete mit wenigen Inseraten); Anteil sinkt von 16 % auf 11 %
+- **Datenauffälligkeit:** Bei `12500926` / `12500930` sind „Wittenau Mitte“ und „Wittenau Süd“ gegenüber Geometrie und MSS vertauscht benannt (`outputs/pruefung_namensabweichungen_ibb.csv`); drei weitere Abweichungen sind reine Schreibvarianten
 
-**Offizielle Datenquelle:**  
-https://www.ibb.de/de/ueber-uns/publikationen/wohnungsmarktbericht/2025.html
-
-Die Tabelle enthält pro Planungsraum:
-
-- ID
-- Name
-- Median-Angebotsmiete 2025
-- Anzahl der Inserate
-- arithmetisches Mittel der Angebotsmiete
-
-**Qualität:**
-
-- 542 nicht leere Medianwerte
-- 542 Fallzahlen
-- 88 Planungsräume mit weniger als 21 Inseraten
-- Mindestfallzahl: 3
-- maximale Fallzahl: 374
-
-Planungsräume mit weniger als 21 Inseraten wurden in der Hauptanalyse auf fehlenden Mietwert gesetzt. Dadurch bleiben 434 Planungsräume für das vollständige Mietmodell.
-
-Der Schwellenwert von 21 ist eine bewusste Annahme zur Stabilisierung kleiner Stichproben. Ein späterer Robustheitscheck sollte diesen Wert variieren, beispielsweise:
-
-- Mindestfallzahl 10
-- Mindestfallzahl 21
-- Mindestfallzahl 30
-
-**Wichtige Limitation:** Angebotsmieten sind nicht mit den tatsächlich von Haushalten gezahlten Nettokaltmieten identisch. Die Daten beschreiben den betrachteten Angebotsmarkt und nicht individuelle Mietbelastung.
+**Limitation:** Angebotsmieten ≠ tatsächlich gezahlte Bestandsmieten.
 
 ---
 
-## 3.5 Entfernte oder nicht verwendete Daten
+## 3.5 Nicht verwendete Daten
 
-Die folgenden Daten sind nicht Bestandteil der belastbaren Hauptanalyse:
-
-- `strassenverteilung.csv`
-- `laerm_strassen_lden.geojson`
-- alte Proxy-Aggregation aus Linienlängen
-- 404-Datei `laerm_fassadenpegel2022.txt`
-- alte XML- oder GPKG-Fehlerdateien
-
-Die Straßendaten enthalten keine dB-Werte und sind daher kein Ersatz für Lärminformationen.
-
-Die Datei `laerm_strassen_lden.geojson` enthält den Verlauf bewerteter Straßen, aber keine Pegel.
-
-Die frühere CSV-Aggregation mit Kilometerwerten wurde durch echte Fassadenpegel ersetzt und darf nicht als Lärmvariable interpretiert werden.
+- `strassenverteilung.csv`, `laerm_strassen_lden.geojson`: keine dB-Werte
+- `data/raw/laerm_fassadenpegel2022.geojson`: enthält trotz Namens **Wohngebäude-Polygone** (`ab_wohngebaeude2022`), keine Pegel; wird nicht verwendet (könnte für eine Bevölkerungsgewichtung genutzt werden)
+- `data/current/`: ältere Kopien
 
 ---
 
 ## 4. Datenverknüpfung
 
-Die Daten werden über die Planungsraum-ID zusammengeführt:
+Alle Datensätze werden über die achtstellige PLR-ID mit `validate="one_to_one"` verknüpft. Excel-Zeilen werden über ein Muster `\d{8}` erkannt, sodass Kopf- und Fußnotenzeilen ignoriert werden.
 
-```text
-Planungsraumgeometrie
-        +
-MSS-Sozialdaten
-        +
-IBB-Mietdaten
-        +
-WFS-Fassadenpegel
-        =
-berlin_merged
-```
+- 542 Planungsräume, 542 Lärmwerte
+- 535 vollständige Lärm-/Sozial-Fälle
+- 434 vollständige Lärm-/Sozial-/Miet-Fälle
 
-Die Planungsraum-ID wird bei jedem Datensatz auf acht Stellen normalisiert:
-
-```text
-01100101
-01100102
-...
-```
-
-Die Zusammenführung verwendet `validate="one_to_one"`. Damit wird verhindert, dass doppelte IDs die Datensätze vervielfachen.
-
-**Ergebnis des finalen Joins:**
-
-- 542 Planungsräume
-- 542 Lärmwerte
-- 535 vollständige Lärm-/Deprivations-Fälle
-- 434 vollständige Miet-/Lärm-/Deprivations-Fälle
-
-Die zusammengeführten Dateien sind:
-
-- `data/processed/berlin_merged.csv`
-- `data/processed/berlin_merged.gpkg`
+Ausgaben: `data/processed/berlin_merged.csv`, `berlin_merged.gpkg` (inkl. Index, Quintil, Cluster), `outputs/datenqualitaet.csv`
 
 ---
 
-## 5. Deskriptive Statistik
+## 5. PCA: Benachteiligungsindex
 
-Die Deskriptive Analyse umfasst:
+- Eingangsvariablen: S1–S4, z-standardisiert, n = 535
+- Bartlett-Test: Chi² = 2835, p < 0,001 → Indikatoren hoch korreliert, PCA sinnvoll
+- Eigenwerte: 3,24 / 0,67 / 0,07 / 0,03 → nach Kaiser-Kriterium genau **eine** Komponente
+- **PC1 erklärt 80,7 %** der Varianz
+- Ladungen PC1: Kinderarmut 0,97, Arbeitslosigkeit 0,97, Transferbezug 0,97, Alleinerziehende 0,65
+- **Validierung:** r = 0,998 mit dem amtlichen MSS-Status-Index; ρ = 0,84 mit der Statusklasse
+- Index z-standardisiert (Mittel 0, SD 1); höhere Werte = stärkere Benachteiligung
 
-- Anzahl gültiger Beobachtungen
-- Mittelwert
-- Median
-- Minimum
-- Maximum
-- Standardabweichung
-- Varianz
-- Quartile
-- Histogramme
-- Boxplots
-
-Die wichtigsten Ausgabedateien sind:
-
-- `outputs/descriptive_statistics.csv`
-- `outputs/boxplots.png`
-- `outputs/hist_laerm_gesamt_lden_db.png`
-- `outputs/hist_angebotsmiete_median_eur_m2.png`
-
-Die Mietdaten sind aufgrund kleiner Fallzahlen teilweise unvollständig. Die fehlenden Mietwerte werden nicht durch Mittelwerte ersetzt.
+Ausgaben: `pca_bericht.txt`, `pca_loadings.csv`, `pca_explained_variance.csv`, `pca_scree_ladungen.png`
 
 ---
 
-## 6. Korrelationsanalyse
+## 6. Korrelationen
 
-Für die Analyse werden Pearson- und Spearman-Korrelationen verwendet.
+| Paar | n | Pearson r | p | Spearman ρ | p |
+|---|---:|---:|---:|---:|---:|
+| Benachteiligung – LDEN energetisch | 535 | 0,06 | 0,152 | 0,12 | 0,004 |
+| Benachteiligung – Straßenlärm LDEN | 535 | 0,17 | < 0,001 | 0,21 | < 0,001 |
+| Benachteiligung – LDEN Median | 535 | −0,09 | 0,041 | −0,09 | 0,035 |
+| Benachteiligung – Anteil > 65 dB | 535 | 0,07 | 0,094 | 0,13 | 0,002 |
+| Miete – LDEN | 434 | 0,38 | < 0,001 | 0,39 | < 0,001 |
+| Benachteiligung – Miete | 434 | −0,48 | < 0,001 | −0,47 | < 0,001 |
 
-## 6.1 Deprivation und Lärm
-
-- Beobachtungen: 535
-- Pearson: \(r = 0.102\)
-- Pearson-p-Wert: 0.0185
-- Spearman: \(\rho = 0.190\)
-- Spearman-p-Wert: ungefähr 0.000010
-
-Interpretation:
-
-- Die Richtung ist positiv.
-- Ein höherer Deprivationswert geht tendenziell mit höherem Lärm einher.
-- Die lineare Pearson-Korrelation ist schwach.
-- Der etwas stärkere Spearman-Wert deutet auf einen monotone, möglicherweise nichtlineare Komponente hin.
-
-Die Hypothese H1 wird daher schwach unterstützt.
-
-## 6.2 Miete und Lärm
-
-- Beobachtungen: 434
-- Pearson: \(r = 0.384\)
-- Pearson-p-Wert: sehr klein
-- Spearman: \(\rho = 0.386\)
-
-Höhere Angebotsmieten treten tendenziell in Planungsräumen mit höherem Lärm auf. Dieser Zusammenhang ist nicht automatisch durch Lärm verursacht. Er kann zentrale Lageeffekte, Infrastruktur, Arbeitsplätzen oder Innenstadtlage widerspiegeln.
-
-## 6.3 Deprivation und Miete
-
-- Beobachtungen: 434
-- Pearson: \(r = -0.382\)
-- Spearman: \(\rho = -0.353\)
-
-Höhere Deprivation geht tendenziell mit niedrigeren Angebotsmieten einher.
-
-Die Ausgabedatei ist:
-
-- `outputs/pairwise_correlations.csv`
+Die Zusammenhänge zwischen Benachteiligung und Lärm sind sehr schwach, und ihr Vorzeichen hängt vom Lärmmaß ab. Hinweis: Diese p-Werte berücksichtigen keine räumliche Autokorrelation und sind daher zu optimistisch.
 
 ---
 
-## 7. Lineare Regression
+## 7. Gruppenvergleich
 
-Die Modelle verwenden heteroskedastizitätsrobuste HC3-Standardfehler.
+| Gruppe | Q1 (geringste) | Q2 | Q3 | Q4 | Q5 (stärkste) |
+|---|---:|---:|---:|---:|---:|
+| Mittlerer LDEN [dB] | 55,8 | 58,4 | 57,7 | 57,2 | 57,4 |
 
-## 7.1 Modell A: Lärm erklärt durch Deprivation
+- Kruskal-Wallis über Quintile: p < 0,001; nach MSS-Klasse ebenfalls p < 0,001
+- **Muster:** Die am wenigsten benachteiligten Gebiete sind rund 1,9 dB leiser. Zwischen Q2 und Q5 gibt es kaum Unterschiede (1,2 dB) und keinen ansteigenden Verlauf
+- Nach MSS-Klasse sind die Gebiete mit „sehr niedrigem“ Status (Großsiedlungen am Stadtrand) leiser als die Klassen „mittel“ und „niedrig“
 
-\[
-\mathrm{Lärm}_i =
-\beta_0 +
-\beta_1 \cdot \mathrm{Deprivation}_i +
-\epsilon_i
-\]
-
-Ergebnis:
-
-- Fallzahl: 535
-- Deprivationskoeffizient: 0.473
-- HC3-Konfidenzintervall: 0.060 bis 0.886
-- p-Wert: 0.0247
-- \(R^2 = 0.010\)
-- bereinigtes \(R^2 = 0.009\)
-
-Interpretation:
-
-- Der Koeffizient ist positiv und statistisch signifikant.
-- Jede Zunahme um eine Einheit des ordinalen Deprivationsscores geht im unbereinigten Modell mit etwa 0,47 dB(A) mehr Gesamt-LDEN einher.
-- Das Modell erklärt nur 1 % der Lärmvariation.
-
-Die kleine erklärte Varianz zeigt, dass Lärm durch viele weitere Faktoren bestimmt wird.
-
-## 7.2 Modell B: Angebotsmiete erklärt durch Lärm und Deprivation
-
-\[
-\mathrm{Miete}_i =
-\beta_0 +
-\beta_1 \cdot \mathrm{Lärm}_i +
-\beta_2 \cdot \mathrm{Deprivation}_i +
-\epsilon_i
-\]
-
-Ergebnis:
-
-- Fallzahl: 434
-- Lärmkoeffizient: 0.513
-- Deprivationskoeffizient: -2.441
-- \(R^2 = 0.305\)
-- bereinigtes \(R^2 = 0.302\)
-
-Interpretation:
-
-- Bei gleicher Deprivation ist ein höherer Lärmwert mit höheren Angebotsmieten verbunden.
-- Bei gleichem Lärm sind stärker benachteiligte Gebiete mit niedrigeren Mieten verbunden.
-- Das Modell ist stärker als das reine Lärmmodell, kann aber keinen kausalen Effekt belegen.
-
-Die Ausgabedateien sind:
-
-- `outputs/regression_laerm_erklart.txt`
-- `outputs/regression_laerm_erklart_coefficients.csv`
-- `outputs/regression_angebotsmiete_erklart.txt`
-- `outputs/regression_angebotsmiete_erklart_coefficients.csv`
+Ausgaben: `gruppenvergleich_tests.csv`, `gruppenvergleich_profile.csv`, `boxplot_laerm_nach_sozialer_lage.png`
 
 ---
 
-## 8. VIF und Multikollinearität
+## 8. Regression
 
-Für das Mietmodell wurden VIF-Werte berechnet:
+Kontrollvariablen: log(1 + Einwohnerdichte), Innere Stadt (0/1). Standardfehler: HC3 bzw. **geclustert nach 58 Prognoseräumen**. Die geclusterten Standardfehler sind maßgeblich, weil die Residuen räumlich autokorreliert sind.
 
-| Variable | VIF |
-|---|---:|
-| Deprivation | 1.010 |
-| Lärm | 1.010 |
+### Modell A: Lärm ~ Benachteiligung (Effekt pro SD des Index)
 
-Die beiden Prädiktoren sind nicht problematisch kollinear.
+| Modell | Ziel | Koeff. | 95 %-KI | p | R² |
+|---|---|---:|---|---:|---:|
+| A1 | LDEN, HC3 | +0,22 | [−0,08; 0,53] | 0,155 | 0,004 |
+| A2 | LDEN, Cluster-SE | +0,22 | [−0,35; 0,80] | 0,445 | 0,004 |
+| A3 | LDEN + Kontrollen | +0,22 | [−0,19; 0,63] | 0,289 | 0,225 |
+| A4 | Median-LDEN + Kontrollen | +0,22 | [−0,14; 0,58] | 0,239 | 0,092 |
+| A5 | Anteil > 65 dB + Kontrollen | +0,44 %-Pkt. | [−0,16; 1,04] | 0,154 | 0,249 |
+| A6 | Straßenlärm + Kontrollen | +0,39 | [−0,06; 0,84] | 0,086 | 0,229 |
 
-Ausgabedatei:
+**Korrektur gegenüber der früheren Fassung:** Das frühere Ergebnis (p = 0,025) beruhte auf dem ordinalen Score mit HC3-Standardfehlern. Mit stetigem Index und räumlich geclusterten Standardfehlern ist **kein Modell signifikant**. Der Straßenlärm zeigt eine schwache Tendenz (p = 0,09).
 
-- `outputs/vif_values.csv`
+### Modell B: Miete ~ Lärm + Benachteiligung
+
+| Modell | b Lärm [EUR/m² pro dB] | b Benachteiligung [EUR/m² pro SD] | R² |
+|---|---:|---:|---:|
+| B1 (HC3) | +0,48 (p < 0,001) | −2,22 (p < 0,001) | 0,38 |
+| B2 (+ Kontrollen, Cluster) | +0,23 (p < 0,001) | −2,09 (p < 0,001) | 0,53 |
+
+Robustheit (B2): Bei Mindestfallzahlen von 10, 21 und 30 Inseraten liegt b Lärm bei 0,23 / 0,23 / 0,28. Mit den Mieten 2022 sind es 0,26. Das Ergebnis ist **stabil**. Der positive Lärmeffekt halbiert sich durch die Lagekontrolle; er spiegelt überwiegend die Attraktivität zentraler Lagen wider und ist nicht kausal zu lesen.
+
+VIF aller Modelle < 1,8 → keine Multikollinearität.
+
+Ausgaben: `regression_uebersicht.csv`, `regression_*.txt`, `vif_values.csv`, `regression_robustheit_miete.csv`
 
 ---
 
 ## 9. K-Means-Clustering
 
-Die Merkmale wurden standardisiert:
+Merkmale (standardisiert): LDEN, Benachteiligungsindex, Angebotsmiete; n = 434.
 
-- Gesamt-LDEN
-- Deprivationsindex
-- Angebotsmiete
+| k | 2 | 3 | 4 | 5 | 6 | 7 |
+|---|---:|---:|---:|---:|---:|---:|
+| Silhouette | 0,331 | 0,300 | 0,284 | 0,256 | 0,257 | 0,262 |
 
-Für \(k=2\) bis \(k=7\) wurden:
+**Gewählt: k = 4.** k = 2 hat den höchsten Score, trennt aber nur „benachteiligt/günstig“ von „wohlhabend/teuer“ und blendet Lärm aus. k = 4 bleibt über 0,25 (schwache, aber vorhandene Struktur) und liefert eine interpretierbare Typologie aus laut/leise und benachteiligt/wohlhabend.
 
-- Inertia
-- Silhouette Score
-- Clusterprofile
-- Clustergrößen
+| Cluster | n | LDEN | Index | Miete | Typische Lage |
+|---|---:|---:|---:|---:|---|
+| C1 Lärm niedrig · Benachteiligung hoch · Miete niedrig | 88 | 54,8 | +1,00 | 9,7 | Großsiedlungen: Marzahn-Hellersdorf (18), Lichtenberg (15), Neukölln-Süd (14), Spandau (11), z. B. Hellersdorfer Promenade, Weiße Siedlung, Maulbeerallee |
+| C2 Lärm niedrig · Benachteiligung niedrig · Miete mittel | 113 | 55,0 | −0,75 | 15,3 | Äußere Stadt: Pankow (23), Steglitz-Zehlendorf (20), Treptow-Köpenick (16) |
+| C3 Lärm hoch · Benachteiligung hoch · Miete niedrig | 101 | 59,3 | +0,87 | 13,8 | Mitte/Wedding (18), Neukölln-Nord (14), Tempelhof-Schöneberg (12), z. B. Soldiner Straße, Drontheimer Straße, Rollberg |
+| C4 Lärm hoch · Benachteiligung niedrig · Miete hoch | 132 | 60,5 | −0,46 | 19,6 | Charlottenburg-Wilmersdorf (30), Mitte (23), Prenzlauer Berg/Pankow (23), Friedrichshain-Kreuzberg (17) |
 
-berechnet.
+23 % der geclusterten PLR (C3) sind zugleich laut und benachteiligt (**Mehrfachbelastung**).
 
-**Modelauswahl:**
-
-| k | Silhouette |
-|---:|---:|
-| 2 | 0.332 |
-| 3 | 0.356 |
-| 4 | 0.316 |
-| 5 | 0.294 |
-| 6 | 0.324 |
-| 7 | 0.324 |
-
-Die endgültige Clusterzahl ist \(k=3\), da dieser Wert den höchsten Silhouette Score hat.
-
-## Clusterprofile
-
-| Cluster | Mittlerer Lärm dB(A) | Mittlere Deprivation | Mittlere Miete EUR/m² |
-|---:|---:|---:|---:|
-| 0 | 55.32 | 1.79 | 13.22 |
-| 1 | 56.97 | 3.57 | 10.39 |
-| 2 | 60.10 | 1.98 | 18.71 |
-
-Interpretation:
-
-- Cluster 0: relativ moderate Lärmwerte und mittlere soziale Lage
-- Cluster 1: stärkere Deprivation und niedrigere Mietwerte
-- Cluster 2: höhere Lärmwerte und deutlich höhere Mietwerte
-
-Diese Clusterbildung beschreibt Gebietstypen, keine gesellschaftlich bindenden Kategorien.
-
-Ausgabedateien:
-
-- `outputs/kmeans_model_selection.csv`
-- `outputs/kmeans_cluster_profiles.csv`
-- `outputs/kmeans_clusters.csv`
-- `outputs/kmeans_clusters.png`
+Ausgaben: `map_kmeans_cluster.png`, `kmeans_cluster_profiles.csv`, `kmeans_clusters.csv`, `kmeans_model_selection.png`
 
 ---
 
-## 10. Räumliche Analyse nach Moran
+## 10. Moran's I (Queen, 999 Permutationen, Seed 42)
 
-Für die räumliche Nachbarschaft wurde eine Queen-Nachbarschaft verwendet.
+| Variable | I | p_sim |
+|---|---:|---:|
+| LDEN | 0,46 | ≤ 0,001 |
+| Benachteiligungsindex | 0,43 | ≤ 0,001 |
+| Angebotsmiete | 0,45 | ≤ 0,001 |
+| Residuen A1 | 0,47 | ≤ 0,001 |
+| Residuen A3 (mit Kontrollen) | 0,30 | ≤ 0,001 |
 
-## 10.1 Moran's I für Lärm
-
-- \(I = 0.4647\)
-- simulierter p-Wert: 0.001
-- kein Inselproblem
-
-Der Lärm zeigt eine starke positive räumliche Autokorrelation. Hochbelastete Planungsräume liegen tendenziell nahe beieinander.
-
-## 10.2 Moran's I für Deprivation
-
-- \(I = 0.3116\)
-- simulierter p-Wert: 0.001
-
-Die soziale Lage weist ebenfalls räumliche Cluster auf.
-
-## 10.3 Moran's I für Regressionsresiduen
-
-- \(I = 0.4728\)
-- simulierter p-Wert: 0.001
-
-Die Residuen des Lärm-Deprivation-Modells sind stark räumlich korreliert. Das bedeutet:
-
-- das einfache Modell erfasst die räumliche Struktur nicht vollständig
-- zusätzliche räumliche oder sachliche Kontrollvariablen wären sinnvoll
-- eine gewöhnliche OLS-Analyse allein reicht für eine räumliche Umweltgerechtigkeitsanalyse nicht vollständig aus
-
-Ausgabedateien:
-
-- `outputs/morans_i_laerm_gesamt_lden_db.txt`
-- `outputs/morans_i_benachteiligungsindex.txt`
-- `outputs/morans_i_residuals.txt`
+Alle Variablen sind stark räumlich geclustert. Die Kontrollvariablen senken die Autokorrelation der Residuen von 0,47 auf 0,30, beseitigen sie aber nicht. Das begründet die geclusterten Standardfehler. Räumliche Regressionsmodelle wären der nächste methodische Schritt, liegen aber außerhalb des Modulumfangs.
 
 ---
 
-## 11. Karte und Visualisierung
+## 11. Karten und Visualisierung
 
-Das Projekt exportiert statische Karten und Scatterplots.
-
-Karten:
-
-- `outputs/map_laerm_gesamt_lden_db.png`
-- `outputs/map_benachteiligungsindex.png`
-- `outputs/map_angebotsmiete_median_eur_m2.png`
-
-Weitere Visualisierungen:
-
-- Korrelationsheatmap
-- Lärm-Deprivation-Scatterplot
-- Miet-Lärm-Scatterplot
-- Miet-Deprivation-Scatterplot
-- K-Means-Projektion
-- Verteilungsdiagramme
-- Boxplots
-
-Eine interaktive Dashboard-Version wäre möglich, beispielsweise mit Streamlit und Plotly. Dafür müssten zusätzlich Streamlit und Plotly in der Umgebung installiert werden.
+- `ergebnis_leitfrage.png`: Ergebnisgrafik mit Quintil-Boxplot, Anteil > 65 dB, Koeffizientenplot und Antworttext
+- `map_kmeans_cluster.png`: Berlin-Karte der Gebietstypen mit Bezirksgrenzen
+- `map_*.png`: Lärm, Anteil > 65 dB, Benachteiligungsindex, MSS-Klasse, Miete, S1–S4
+- `scatter_*.png`, `correlation_heatmap_{pearson,spearman}.png`, `boxplots.png`, `hist_*.png`, `pca_scree_ladungen.png`
 
 ---
 
-## 12. Datenrealität und wissenschaftliche Aussagekraft
+## 12. Stärken und Schwächen
 
-Die Daten entsprechen den offiziellen Datenquellen und sind technisch nutzbar. Trotzdem gibt es wichtige Einschränkungen.
+**Stärken**
+- Offizielle, verifizierte Quellen; Lärmaggregation unabhängig reproduziert
+- Benachteiligungsindex per PCA gebildet und gegen den amtlichen Index validiert
+- Räumliche Abhängigkeit geprüft und in der Inferenz berücksichtigt
+- Mehrere Lärmmaße, Mietschwellen und Mietjahre als Robustheitschecks
 
-## Stärken
-
-- Offizielles WFS mit 3.799.746 Fassadenpegelpunkten
-- echte dB(A)-Werte statt Linienlängen
-- vollständige Geometrie für alle 542 Planungsräume
-- eindeutige Planungsraum-ID
-- echte Lärm-, Miet- und Sozialdaten
-- robuste HC3-Standardfehler
-- räumliche Autokorrelation geprüft
-- transparente Fallzahlnachweise
-
-## Schwächen
-
-- Querschnitt statt Längsschnitt
-- unterschiedliche Datenstände
-- Lärmaggregation auf Gebietsebene
-- kein Bevölkerungsgewichtung der Lärmpunkte
-- kein individueller Wohnbezug
-- Mietdaten nur für Angebotsmarkt und viele kleine Stichproben
-- MSS-Datei enthält keine Einzelindikatoren für eine echte PCA
-- der Deprivationsscore ist vereinfacht ordinal
-- die Residuen weisen starke räumliche Abhängigkeit auf
-- Kontrollvariablen wie Fläche, Dichte und Grünanteil sind nicht final integriert
-
-## Was die Analyse nicht beweist
-
-Die Studie beweist nicht:
-
-- dass soziale Benachteiligung Lärm verursacht
-- dass Lärm direkte Mietpreise verursacht
-- dass einzelne Haushalte benachteiligt sind
-- dass ein beobachteter Zusammenhang für alle Zeitebenen gilt
-
-Zulässige Aussagen sind beispielsweise:
-
-- „In den betrachteten Daten besteht ein schwacher positiver räumlicher Zusammenhang zwischen Deprivation und Lärm.“
-- „Nach Berücksichtigung der Deprivation hängt die Angebotsmiete positiv mit dem Lärm zusammen.“
-- „Lärm und Deprivation sind räumlich stark geclustert.“
-- „Das einfache Regressionsmodell erklärt einen kleinen Anteil der Lärmvariation.“
+**Schwächen**
+- Querschnitt, unterschiedliche Datenjahre
+- Fassadenpunkte nicht bevölkerungsgewichtet
+- Mietfilter unterrepräsentiert Gebiete mit hohem Status
+- Wittenau-Namensvertauschung in der IBB-Tabelle ungeklärt
+- Residuen auch mit Kontrollen räumlich autokorreliert
 
 ---
 
-## 13. Aktueller Technischer Stand
-
-Der vorhandene technische Ablauf ist:
+## 13. Technischer Stand
 
 ```text
-aggregate_noise.py
-        ->
-WFS-Abfrage
-        ->
-energetische PLR-Aggregation
-        ->
-laermdaten_aggregiert.csv
-        ->
-berlin_data_science.py
-        ->
-berlin_merged.csv / berlin_merged.gpkg
-        ->
-EDA / Regression / K-Means / Moran / Karten
-        ->
-outputs/
+aggregate_noise.py  -> WFS (3,8 Mio. Punkte) -> laermdaten_aggregiert.csv
+berlin_data_science.py -> Join -> PCA -> EDA -> Gruppenvergleich -> Regression
+                        -> K-Means -> Moran -> Karten -> ergebnis_leitfrage.png
 ```
 
-Der vollständige Hauptlauf lautet:
-
-```powershell
+```bash
 cd berlin_laerm_sozialstruktur_starter
-..\.venv\Scripts\python.exe aggregate_noise.py
-..\.venv\Scripts\python.exe berlin_data_science.py
+python aggregate_noise.py      # optional, mehrere Minuten
+python berlin_data_science.py  # ca. 1 Minute
 ```
 
-Die Lärmaggregation braucht typischerweise mehrere Minuten, weil 3.799.746 WFS-Punkte geladen werden.
-
-Der Hauptlauf wurde erfolgreich getestet und erzeugt:
-
-- zusammengeführten Geodatensatz
-- Deskriptivstatistik
-- Korrelationsmatrix
-- Regressionssummaries
-- VIF-Datei
-- K-Means-Modellwahl
-- Clusterprofile
-- Moran-Ausgaben
-- Karten
-- Scatterplots
+Getestet mit Python 3.12 und den in `requirements.txt` gepinnten Versionen. Die Ergebnisse sind reproduzierbar (feste Seeds).
 
 ---
 
 ## 14. Aufräumliste
 
-Diese Dateien können Sie selbst löschen, sofern sie nicht als Dokumentationsnachweis benötigt werden:
+**Nicht mehr benötigt** (nach Sicherung löschbar):
+- `data/current/` (komplett, Duplikate bzw. alte Dateien)
+- `data/raw/laerm_strassen_lden.geojson` (keine Pegel)
+- `data/raw/laerm_fassadenpegel2022.geojson` (Wohngebäude, ungenutzt, 190 MB)
+- `data/raw/laerm_capabilities.xml` (nur Metadaten)
+- Veraltete Outputs aus dem alten Lauf: `outputs/correlation_heatmap.png`, `outputs/regression_laerm_erklart*.{txt,csv}`, `outputs/regression_angebotsmiete_erklart*.{txt,csv}`
 
-### Nicht mehr für die Analyse benötigt
-
-- `data/current/planungsraume.csv`
-- `data/current/strassenverteilung.csv`
-- `data/current/laermdate.GetCapabilities.xml`
-- `data/raw/laerm_strassen_lden.geojson`
-- `data/raw/Mietdaten.xlsx`
-- `data/raw/sozialdaten.xlsx`
-- `data/raw/laerm_capabilities.xml`
-- `data/raw/laerm_fassadenpegel2022.geojson`
-
-Hinweis: Die letzten drei sind aktuell nur Redundanzen, wenn die finalen aggregierten Datensätze und das Skript als reproduzierbare Quelle erhalten bleiben. Die Lärmdaten können neu über den WFS geladen werden.
-
-Die Dateien unter `data/current/` sind ältere Kopien und können nach Sicherung entfernt werden.
-
-### Nicht mehr benötigte Verzeichnisinhalte
-
-- `__pycache__/`
-- überholte Dateien in `data/current/`
-- überholte WFS-Testdateien, falls erneut erstellt
-
-### Dateien, die erhalten bleiben sollten
-
-- `aggregate_noise.py`
-- `berlin_data_science.py`
-- `README.md`
-- `Plan.md`
-- `requirements.txt`
-- `data/raw/planungsraeume.geojson`
-- `data/raw/sozialdaten.xlsx`
-- `data/raw/Mietdaten.xlsx`
-- `data/raw/laerm_capabilities.xml`
+**Unbedingt behalten** (werden vom Skript gelesen):
+- `data/raw/planungsraeume.geojson`, `sozialdaten.xlsx`, `mss2025_indexindikatoren_anteile_plr.xlsx`, `mss2025_indexindikatoren_zwerte_plr.xlsx`, `Mietdaten.xlsx`
 - `data/processed/laermdaten_aggregiert.csv`
-- `data/processed/laermdaten_aggregiert.geojson`
-- `data/processed/berlin_merged.csv`
-- `data/processed/berlin_merged.gpkg`
-- `outputs/`
 
 ---
 
-## 15. Empfohlene nächste Verbesserungen
+## 15. Mögliche Erweiterungen (optional)
 
-Für eine besonders starke Universitätsabgabe wären folgende Erweiterungen sinnvoll:
-
-1. Ein räumliches Regressionsmodell ergänzen.
-2. Moran Residuen in eine räumliche Modellinterpretation integrieren.
-3. Ein bevölkerungsgewichtetes Lärmmaß berechnen.
-4. Weitere MSS-Kontextindikatoren beschaffen.
-5. Bei ausreichender Datenbasis eine PCA durchführen.
-6. Mietrobustheitschecks für 10, 21 und 30 Inserate durchführen.
-7. OLS-Residuen normaler prüfen.
-8. Strukturgleichheit der Mietdaten für 2022 mit Lärm 2022 prüfen.
-9. Multi-Jahr-Auswertung hinzufügen, falls mehrere MSS- und Mietdatenstände vorhanden sind.
-10. Streamlit-Dashboard mit Karte, Scatterplots und Clusterfilter ergänzen.
+1. Fassadenpunkte auf Wohngebäude beschränken (Bevölkerungsbezug)
+2. LISA-Karte für lokale Hot-/Coldspots
+3. Räumliches Regressionsmodell (Spatial Error/Lag) als Ausblick
 
 ---
 
 ## 16. Endgültiges Projektfazit
 
-Das Projekt besitzt jetzt eine vollständige und wissenschaftlich nachvollziehbare Datenbasis.
+**Antwort auf die Leitfrage:**
 
-Die Planungsraumgeometrien sind vollständig und valide. Der Lärmdatensatz basiert auf echten Fassadenpegeln und nicht mehr auf Straßennetzlängen. Sozialdaten und Mietdaten wurden korrekt auf die gemeinsame PLR-Ebene gebracht.
-
-Die zentrale Hypothese erhält eine schwache positive Unterstützung:
-
-- sozial ungünstigere Gebiete haben tendenziell höhere Lärmbelastung
-- der Zusammenhang ist statistisch nachweisbar, aber praktisch schwach
-- Angebotsmieten hängen stärker mit Lärm und Lage zusammen
-- sozial benachteiligte Gebiete zeigen tendenziell niedrigere Mieten
-- Lärm und Deprivation sind räumlich stark geclustert
-- Residuen zeigen, dass ein einfaches OLS-Modell räumliche Muster nicht vollständig erklärt
-
-Damit ist das Projekt bereit für eine universitäre Präsentation und Analyse, wenn die genannten methodischen Limitationen transparent berichtet werden.
+- **H1 nicht gestützt:** In Berlin gibt es auf Ebene der Planungsräume **keinen robusten linearen Zusammenhang** zwischen sozialer Benachteiligung und Lärm (+0,22 dB pro SD, p = 0,29 mit Kontrollen und räumlich geclusterten Standardfehlern).
+- **Nichtlineares Muster:** Die am wenigsten benachteiligten Gebiete sind etwa 2 dB leiser. Darüber hinaus gilt „je ärmer, desto lauter“ nicht, denn die am stärksten benachteiligten Großsiedlungen am Stadtrand sind vergleichsweise leise.
+- **Straßenverkehrslärm** zeigt eine schwache positive Tendenz (p = 0,09).
+- **H2 gestützt:** Lauter ist teurer (+0,23 EUR/m² pro dB), benachteiligt ist günstiger (−2,09 EUR/m² pro SD). Das ist ein Lageeffekt und keine Kausalität.
+- **H3 gestützt:** Vier interpretierbare Gebietstypen. **23 % der PLR sind zugleich laut und benachteiligt** (v. a. Wedding, Nord-Neukölln, Schöneberg). Umweltungerechtigkeit ist also kein stadtweiter Trend, sondern ein **räumlich konzentriertes Problem bestimmter innerstädtischer Quartiere**.
+- Alle Größen sind stark räumlich geclustert; einfache OLS-Modelle erfassen die räumliche Struktur nicht vollständig.

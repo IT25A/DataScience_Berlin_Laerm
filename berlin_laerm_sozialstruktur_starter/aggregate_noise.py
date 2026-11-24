@@ -3,9 +3,15 @@ Aggregiert echte Fassadenpegel des Berliner Lärm-WFS pro Planungsraum.
 
 Dezibelwerte werden energetisch gemittelt:
 10 * log10(mean(10^(dB/10)))
+
+Da der energetische Mittelwert über verschiedene Fassaden stark von den
+lautesten Fassaden dominiert wird, werden zusätzlich robuste Kennzahlen
+berechnet: Median der Fassadenpegel sowie der Anteil der Fassadenpunkte über
+den Auslösewerten der Lärmaktionsplanung (65 dB(A) LDEN, 55 dB(A) LN).
 """
 
 import json
+import time
 from pathlib import Path
 from urllib.parse import urlencode
 from urllib.request import urlopen
@@ -22,14 +28,26 @@ PROCESSED = ROOT / "data" / "processed"
 WFS_URL = "https://gdi.berlin.de/services/wfs/ua_stratlaerm_2022"
 TYPE_NAME = "ua_stratlaerm_2022:aa_fp_gesamt2022"
 PAGE_SIZE = 100_000
+MAX_RETRIES = 3
+LDEN_THRESHOLD_DB = 65.0
+LN_THRESHOLD_DB = 55.0
+
+
+def valid_levels(values: pd.Series) -> pd.Series:
+    values = pd.to_numeric(values, errors="coerce")
+    return values[(values > 0) & np.isfinite(values)]
 
 
 def energetic_mean(values: pd.Series) -> float:
-    values = pd.to_numeric(values, errors="coerce")
-    values = values[(values > 0) & np.isfinite(values)]
+    values = valid_levels(values)
     if values.empty:
         return np.nan
     return float(10.0 * np.log10(np.mean(np.power(10.0, values / 10.0))))
+
+
+def share_above(values: pd.Series, threshold: float) -> float:
+    values = valid_levels(values)
+    return float((values > threshold).mean() * 100) if not values.empty else np.nan
 
 
 def fetch_page(start_index: int) -> dict:
@@ -43,8 +61,14 @@ def fetch_page(start_index: int) -> dict:
         "startIndex": start_index,
     }
     url = f"{WFS_URL}?{urlencode(params)}"
-    with urlopen(url, timeout=180) as response:
-        return json.loads(response.read())
+    for attempt in range(1, MAX_RETRIES + 1):
+        try:
+            with urlopen(url, timeout=180) as response:
+                return json.loads(response.read())
+        except OSError:
+            if attempt == MAX_RETRIES:
+                raise
+            time.sleep(10 * attempt)
 
 
 planning_areas = gpd.read_file(RAW / "planungsraeume.geojson")
@@ -96,7 +120,7 @@ while start_index < total:
         how="inner",
         predicate="within",
     )
-    all_rows.append(joined)
+    all_rows.append(pd.DataFrame(joined.drop(columns=["geometry", "index_right"])))
 
     start_index += len(features)
     print(f"Verarbeitet: {start_index}/{total}")
@@ -131,6 +155,15 @@ for output_column, source_column in energetic_columns.items():
     )
     aggregation = aggregation.merge(energy, on="plr_id", how="left")
 
+grouped = points_in_plr.groupby("plr_id")
+robust_metrics = pd.DataFrame({
+    "laerm_gesamt_lden_median_db": grouped["ges_den"].apply(lambda v: valid_levels(v).median()),
+    "laerm_gesamt_ln_median_db": grouped["ges_n"].apply(lambda v: valid_levels(v).median()),
+    "anteil_fassaden_lden_ueber_65_prozent": grouped["ges_den"].apply(share_above, threshold=LDEN_THRESHOLD_DB),
+    "anteil_fassaden_ln_ueber_55_prozent": grouped["ges_n"].apply(share_above, threshold=LN_THRESHOLD_DB),
+}).reset_index()
+aggregation = aggregation.merge(robust_metrics, on="plr_id", how="left")
+
 result = planning_areas[["plr_id", "plr_name"]].merge(
     aggregation,
     on="plr_id",
@@ -149,7 +182,6 @@ result_gdf = planning_areas.merge(
 result_gdf.to_file(output_geojson, driver="GeoJSON")
 
 print(f"\nLärmdaten gespeichert: {output_csv}")
+print(f"Zugeordnete Fassadenpunkte: {len(points_in_plr)}/{total}")
 print(f"PLR mit Gesamt-LDEN: {result['laerm_gesamt_lden_db'].notna().sum()}/{len(result)}")
-print(result[
-    ["laerm_gesamt_lden_db", "laerm_gesamt_ln_db", "laerm_strassen_lden_db", "laerm_strassen_ln_db"]
-].describe().round(2).to_string())
+print(result.drop(columns=["plr_id", "plr_name"]).describe().round(2).T.to_string())

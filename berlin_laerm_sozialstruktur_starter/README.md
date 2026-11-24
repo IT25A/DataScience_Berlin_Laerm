@@ -1,8 +1,8 @@
-# Berlin Data-Science Starter: Lärm, soziale Lage und Mieten
+# Berlin Data Science: Lärm, soziale Lage und Mieten
 
 ## 1. Installation
 
-Python 3.10 oder neuer empfohlen.
+Python 3.12 empfohlen (getestet).
 
 ```bash
 python -m venv .venv
@@ -14,92 +14,71 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-## 2. Daten herunterladen und ablegen
+## 2. Benötigte Daten in `data/raw/`
 
-Legt die Rohdaten in `data/raw/` ab:
+| Datei | Inhalt | Quelle |
+|---|---|---|
+| `planungsraeume.geojson` | 542 LOR-Planungsräume (Polygone, EPSG:25833) | [ODIS Berlin](https://daten.odis-berlin.de/) |
+| `sozialdaten.xlsx` | MSS 2025, Tabelle 1: Einwohner, Status-/Dynamikklasse | [MSS 2025 Index-Tabellen](https://www.berlin.de/sen/stadt/stadtdaten/stadtwissen/monitoring-soziale-stadtentwicklung/bericht-2025/tabellen-der-index-indikatoren-zum-bericht-2025/) |
+| `mss2025_indexindikatoren_anteile_plr.xlsx` | MSS 2025, Tabelle 2.1: Indikatoren S1–S4 in % | wie oben |
+| `mss2025_indexindikatoren_zwerte_plr.xlsx` | MSS 2025, Tabelle 3: z-Werte und amtlicher Status-Index (Validierung der PCA) | wie oben |
+| `Mietdaten.xlsx` | IBB-Angebotsmieten nach Planungsräumen 2012–2025 | [IBB Wohnungsmarktbericht 2025](https://www.ibb.de/de/ueber-uns/publikationen/wohnungsmarktbericht/2025.html) |
 
-- `planungsraeume.gpkg`: LOR-Planungsraum-Polygone
-- `sozialdaten.xlsx`: MSS-2025-Tabelle auf Ebene der 542 Planungsräume
-- `mietdaten.xlsx`: IBB-Angebotsmieten nach Planungsräumen (Excel-Tabelle, sofern verfügbar)
-- `laermdaten.csv` ODER `laerm_ld_en.tif` (optional zusätzlich `laerm_ln.tif`)
+Die Excel-Tabellen werden über die achtstellige PLR-ID erkannt; Titel- und
+Fußnotenzeilen werden automatisch ignoriert. Die Spaltenpositionen stehen
+oben in `berlin_data_science.py`.
 
-Offizielle Einstiegsseiten:
-
-- MSS 2025 Index-Tabellen: https://www.berlin.de/sen/stadt/stadtdaten/stadtwissen/monitoring-soziale-stadtentwicklung/bericht-2025/tabellen-der-index-indikatoren-zum-bericht-2025/
-- MSS 2025 Kontext-Tabellen: https://www.berlin.de/sen/stadt/stadtdaten/stadtwissen/monitoring-soziale-stadtentwicklung/bericht-2025/tabellen-der-kontext-indikatoren-zum-bericht-2025/
-- Lärmkarten 2022: https://www.berlin.de/umweltatlas/verkehr-laerm/laermbelastung/2022/download/
-- LOR-Geodaten: https://daten.odis-berlin.de/
-- IBB Wohnungsmarktbericht 2025: https://www.ibb.de/de/ueber-uns/publikationen/wohnungsmarktbericht/2025.html
-- IBB Angebotsmieten (Planungsräume): https://www.ibb.de/media/dokumente/publikationen/berliner-wohnungsmarkt/wohnungsmarktbericht/2025/ibb-wohnungsmarktbericht-angebotsmieten_2012-2025.pdf
-
-Wichtig: Die Lärmkarten-Downloadseite bietet Karten und Raster. Für dieses Skript wird
-ein GeoTIFF benötigt, nicht die PDF-Karte. Die technische Beschreibung des Berliner
-WFS-Datensatzes erläutert auch Fassadenpegel. Prüft, ob ihr ein Raster oder
-Fassadenpegel verwenden wollt.
-
-## 3. Spaltennamen anpassen
-
-Öffnet die Excel-Dateien und prüft die exakten Spaltennamen. Ändert dann in
-`berlin_data_science.py` die `SOCIAL_COLUMN_MAP`, `RENT_COLUMN_MAP`,
-`PLR_ID_GEO` und `PLR_NAME_GEO`.
-
-Die Zielspalten des Skripts lauten:
-
-- `plr_id`: achtstellige Planungsraum-ID
-- `arbeitslosenanteil_prozent`: Arbeitslosenanteil in Prozent
-- `transferbezugsanteil_prozent`: Transferbezugsanteil in Prozent
-- `kinderarmut_prozent`: Kinderarmut in Prozent
-- `angebotsmiete_median_eur_m2`: Median der Angebotsmiete in EUR/m²
-- `anzahl_mietinserate`: Anzahl der Mietinserate
-- `laerm_gesamt_lden_db`: Gesamt-LDEN in dB(A)
-- `laerm_gesamt_ln_db`: Gesamt-LN in dB(A)
-- `laerm_strassen_lden_db`: Straßenverkehr-LDEN in dB(A)
-- `laerm_strassen_ln_db`: Straßenverkehr-LN in dB(A)
-- `benachteiligungsindex`: ordinale soziale Benachteiligung
-- `sozialstatus_index`: numerischer MSS-Statuswert
-- `sozialstatus_kategorie`: MSS-Statusklasse
-- `sozialdynamik_kategorie`: MSS-Dynamikklasse
-
-Die Quellspalten der MSS-Excel-Datei können je nach Tabelle anders heißen. Nutzt
-die im Skript enthaltene Fehlermeldung, die alle gefundenen Spalten ausgibt.
-
-## 4. Lärmdaten
-
-Die Hauptdaten werden über den Berliner WFS geladen:
+## 3. Lärmdaten aggregieren
 
 ```bash
 python aggregate_noise.py
 ```
 
-Das Skript verwendet den Feature-Type
-`ua_stratlaerm_2022:aa_fp_gesamt2022` und lädt die Fassadenpegel für Gesamt-LDEN
-und Nachtlärm herunter. Die Dezibelwerte werden energetisch pro Planungsraum
-gemittelt:
+Lädt alle ca. 3,8 Mio. Fassadenpegel des offiziellen WFS
+`ua_stratlaerm_2022:aa_fp_gesamt2022` (Laufzeit mehrere Minuten, Internet nötig)
+und schreibt `data/processed/laermdaten_aggregiert.csv` mit pro Planungsraum:
 
-\[
-10 \cdot \log_{10}\left(\operatorname{mean}(10^{dB/10})\right)
-\]
+- `laerm_gesamt_lden_db`, `laerm_gesamt_ln_db`, `laerm_strassen_lden_db`, `laerm_strassen_ln_db`:
+  energetischer Mittelwert \(10 \cdot \log_{10}(\operatorname{mean}(10^{L/10}))\)
+- `laerm_gesamt_lden_median_db`, `laerm_gesamt_ln_median_db`: Median der Fassadenpegel
+- `anteil_fassaden_lden_ueber_65_prozent`, `anteil_fassaden_ln_ueber_55_prozent`:
+  Anteil der Fassadenpunkte über den Auslösewerten der Lärmaktionsplanung
+- Anzahl der Fassadenpunkte
 
-Die erzeugte Datei `data/processed/laermdaten_aggregiert.csv` enthält
-Gesamt-LDEN, Nachtlärm, Straßenlärm sowie Fallzahlen. Aktuell haben alle
-542 Planungsräume einen Gesamt-LDEN-Wert.
+Der energetische Mittelwert wird stark von den lautesten Fassaden geprägt; Median
+und Anteile sind robuster und werden als Robustheitscheck verwendet.
 
-## 5. Starten
+## 4. Analyse starten
 
 ```bash
 python berlin_data_science.py
 ```
 
-Ergebnisse und Diagramme werden im Ordner `outputs/` gespeichert.
+Ablauf und wichtigste Ausgaben in `outputs/`:
 
-## 6. Wissenschaftliche Hinweise
+| Schritt | Methode | Ausgaben |
+|---|---|---|
+| Datenqualität | Join über PLR-ID, Mietfilter, Namensabgleich | `datenqualitaet.csv`, `pruefung_namensabweichungen_ibb.csv` |
+| PCA | S1–S4 standardisiert, PC1 = Benachteiligungsindex (z) | `pca_bericht.txt`, `pca_loadings.csv`, `pca_scree_ladungen.png` |
+| EDA | Deskriptive Statistik, Pearson/Spearman | `descriptive_statistics.csv`, `correlation_heatmap_*.png`, `pairwise_correlations.csv` |
+| Gruppenvergleich | Kruskal-Wallis, ANOVA nach Statusklasse/Quintil | `gruppenvergleich_*.csv`, `boxplot_laerm_nach_sozialer_lage.png` |
+| Regression | OLS mit HC3- und geclusterten SE (Prognoseraum) | `regression_uebersicht.csv`, `regression_*.txt`, `vif_values.csv`, `regression_robustheit_miete.csv` |
+| K-Means | Lärm, Benachteiligung, Miete (standardisiert) | `kmeans_*.csv`, `kmeans_*.png`, `map_kmeans_cluster.png` |
+| Moran's I | Queen-Nachbarschaft, 999 Permutationen | `morans_i_uebersicht.csv` |
+| Ergebnis | Antwort auf die Leitfrage | `ergebnis_leitfrage.png`, `ergebnis_zusammenfassung.txt` |
 
-- Pearson und Spearman berichten; Ausreißer und Nichtlinearität prüfen.
-- Regressionen nutzen HC3-robuste Standardfehler.
-- Mietgebiete mit weniger als 21 Inseraten werden in der Hauptanalyse auf fehlend gesetzt.
-- K-Means: Features standardisieren; k anhand Elbow und Silhouette prüfen.
-- Decision Tree ist explorativ und nutzt Cross-Validation.
-- Moran's I prüft räumliche Autokorrelation.
+## 5. Wissenschaftliche Hinweise
+
+- Benachteiligungsindex = PC1 der MSS-Indikatoren S1–S4; höhere Werte = stärkere Benachteiligung.
+- Regressionen: HC3 korrigiert nur Heteroskedastizität. Da Lärm und Residuen räumlich
+  autokorreliert sind (Moran's I), werden zusätzlich nach Prognoseraum geclusterte
+  Standardfehler berichtet; diese sind für die Interpretation maßgeblich.
+- Kontrollvariablen: log(1 + Einwohnerdichte) und Lage (Innere/Äußere Stadt laut LOR).
+- Mietgebiete mit weniger als 21 Inseraten werden auf fehlend gesetzt (IBB-Grenze);
+  Robustheit mit 10/21/30 Inseraten und Mietjahr 2022 wird geprüft.
+- Mietfilter verzerrt die Stichprobe leicht: Gebiete mit hohem Status (wenige
+  Mietinserate) sind im Mietmodell unterrepräsentiert.
+- K-Means: k = 4 begründet gesetzt (siehe Kommentar in der Konfiguration).
 - Aggregierte PLR-Daten erlauben keine individuellen Aussagen (ökologischer Fehlschluss).
-- Zeitstände dokumentieren: Lärm 2022, MSS 2025 (Daten bis 2024), Mieten 2025.
+- Zeitstände: Lärm 2022, MSS 2025 (Daten 31.12.2024), Mieten 2025.
 - Keine Kausalitätsaussagen aus Querschnittskorrelationen ableiten.
