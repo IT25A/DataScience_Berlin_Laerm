@@ -17,7 +17,8 @@
 | Branch | Inhalt |
 |---|---|
 | `fix/pca-mss-analysis` | Ausführliche Version: zusätzlich Spearman, Kruskal-Wallis, HC3-/Cluster-Standardfehler, VIF, Silhouette, Bartlett, Robustheitsmodelle (Median, Straßenlärm, Mietschwellen, Mieten 2022) |
-| `simplify-analysis` | **Vereinfachte Version** (dieser Branch): Vorlesungsmethoden (Standardisierung, PCA, ANOVA, multiple Regression, K-Means mit Elbow) plus Moran's I und nach Prognoseraum geclusterte Standardfehler; gleiche Kernaussagen |
+| `beginner-code` | **Einsteiger-Code** (dieser Branch): identische Methoden und Ergebnisse wie `simplify-analysis`, Python-Code mit deutschen Namen, einfachen Schleifen und ausführlichen Kommentaren |
+| `simplify-analysis` | **Vereinfachte Version**: Vorlesungsmethoden (Standardisierung, PCA, ANOVA, multiple Regression, K-Means mit Elbow) plus Moran's I und nach Prognoseraum geclusterte Standardfehler; gleiche Kernaussagen |
 
 In der vereinfachten Version entfallen: Spearman, Kruskal-Wallis, Bartlett-Test, HC3-Standardfehler, VIF, Silhouette, Robustheitsmodelle A4–A6, B1, Mietschwellen-/2022-Check, Einzelkarten S1–S4.
 

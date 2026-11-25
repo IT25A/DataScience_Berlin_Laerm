@@ -167,7 +167,7 @@ Die IBB schreibt selbst in die Tabelle, dass Planungsräume mit **weniger als 21
 
 ## 2.6 Datenaufbereitung Schritt für Schritt
 
-Die Aufbereitung passiert in `berlin_data_science.py`, Funktion `load_all_data()` (Details in [04_code.md](04_code.md)).
+Die Aufbereitung passiert in `berlin_data_science.py`, Funktion `daten_laden()` (Details in [04_code.md](04_code.md)).
 
 ### Schritt 1: Excel-Tabellen robust einlesen
 Die Excel-Dateien der Behörden haben Titelzeilen, mehrzeilige Überschriften und Fußnoten. Statt fest „ab Zeile 10“ zu lesen, sucht das Skript **jede Zeile, in der eine gültige achtstellige Planungsraum-ID steht**. So werden Überschriften und Fußnoten automatisch ignoriert, und das Skript funktioniert auch, wenn eine Behörde eine Zeile einfügt.

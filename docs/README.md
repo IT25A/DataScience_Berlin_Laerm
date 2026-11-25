@@ -58,4 +58,7 @@ python aggregate_noise.py        # nur nötig, wenn die Lärmdaten neu geladen w
 python berlin_data_science.py    # ca. 1 Minute, schreibt alles nach outputs/
 ```
 
-Hinweis: Diese Dokumentation beschreibt den Branch `simplify-analysis` (vereinfachte Version, an den Vorlesungsstoff angepasst). Die ausführliche Version mit zusätzlichen Robustheitsprüfungen liegt auf dem Branch `fix/pca-mss-analysis`.
+Hinweis zu den Branches:
+- `beginner-code` (dieser Stand): gleiche Methoden und Ergebnisse wie `simplify-analysis`, aber der Python-Code ist für Einsteiger geschrieben (deutsche Namen, einfache Schleifen, viele Kommentare). Die Funktionsreferenz in [04_code.md](04_code.md) beschreibt diese Version.
+- `simplify-analysis`: kompaktere Schreibweise des Codes, identische Ergebnisse.
+- `fix/pca-mss-analysis`: ausführliche Version mit zusätzlichen Robustheitsprüfungen.

@@ -1,34 +1,37 @@
 """
-DATA SCIENCE: Lärm, soziale Lage und Angebotsmieten in Berlin (vereinfachte Version)
-====================================================================================
+BERLIN DATA SCIENCE: Lärm, soziale Lage und Mieten (Einsteiger-Version)
+=======================================================================
 
 Leitfrage:
 Sind Berliner Planungsräume mit einer ungünstigeren sozialen Lage stärker von
 Lärm betroffen, und wie hängen Lärm, soziale Lage und Angebotsmieten zusammen?
 
-Räumliche Einheit: 542 LOR-Planungsräume (PLR). Alle Aussagen gelten für Gebiete,
-nicht für Personen. Korrelation ist keine Kausalität.
+So ist dieses Skript aufgebaut
+------------------------------
+Das Skript arbeitet in 9 Schritten. Jeder Schritt ist eine eigene Funktion.
+Ganz unten in der Funktion main() steht, in welcher Reihenfolge die Schritte
+aufgerufen werden. Am besten liest man das Skript also von unten (main) nach oben.
 
-Methoden (am Vorlesungsstoff orientiert):
-1. Standardisierung und PCA -> Benachteiligungsindex
-2. Deskriptive Statistik und ANOVA (Hypothesentest)
-3. Multiple lineare Regression (mit räumlich geclusterten Standardfehlern)
-4. K-Means-Clustering (Elbow-Methode)
-5. Moran's I als Prüfung der räumlichen Abhängigkeit
-6. Karten und Ergebnisgrafik
+    Schritt 1: Daten laden und verknüpfen
+    Schritt 2: PCA -> Benachteiligungsindex
+    Schritt 3: Deskriptive Statistik
+    Schritt 4: ANOVA (Hypothesentest)
+    Schritt 5: Multiple lineare Regression (mit räumlicher Korrektur)
+    Schritt 6: K-Means-Clustering
+    Schritt 7: Moran's I (räumliche Abhängigkeit)
+    Schritt 8: Karten
+    Schritt 9: Ergebnisgrafik und Antwort auf die Leitfrage
 
-Quellen:
-MSS 2025 Index-Tabellen (Tabelle 1, 2.1 und 3):
-https://www.berlin.de/sen/stadt/stadtdaten/stadtwissen/monitoring-soziale-stadtentwicklung/bericht-2025/tabellen-der-index-indikatoren-zum-bericht-2025/
-Lärmkarten Berlin 2022 (WFS ua_stratlaerm_2022, Fassadenpegel), siehe aggregate_noise.py:
-https://www.berlin.de/umweltatlas/verkehr-laerm/laermbelastung/2022/download/
-IBB Wohnungsmarktbericht 2025 (Angebotsmieten nach Planungsräumen):
-https://www.ibb.de/de/ueber-uns/publikationen/wohnungsmarktbericht/2025.html
-LOR-Geodaten / Planungsräume:
-https://daten.odis-berlin.de/
+Kleine Lesehilfe
+----------------
+- Ein "DataFrame" ist eine Tabelle (wie ein Excel-Blatt). Wir nennen sie meist "daten".
+- Ein "GeoDataFrame" ist eine Tabelle mit einer zusätzlichen Spalte "geometry",
+  in der die Umrisse der Planungsräume gespeichert sind.
+- daten["spalte"] liest eine Spalte, daten["neue_spalte"] = ... legt eine neue an.
+- Ausführliche Erklärungen zu allen Methoden stehen im Ordner docs/.
+
+Quellen: siehe docs/02_daten.md
 """
-
-from __future__ import annotations
 
 import textwrap
 from pathlib import Path
@@ -38,83 +41,56 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 import geopandas as gpd
-
 from scipy import stats
 import statsmodels.api as sm
 from sklearn.preprocessing import StandardScaler
-from sklearn.cluster import KMeans
 from sklearn.decomposition import PCA
-
-try:
-    from libpysal.weights import Queen
-    from esda.moran import Moran
-    HAS_PYSAL = True
-except ImportError:
-    HAS_PYSAL = False
+from sklearn.cluster import KMeans
+from libpysal.weights import Queen
+from esda.moran import Moran
 
 
-# ---------------------------------------------------------------------------
-# 1. PROJEKT-KONFIGURATION – HIER DATEINAMEN UND SPALTEN ANPASSEN
-# ---------------------------------------------------------------------------
+# =============================================================================
+# EINSTELLUNGEN
+# Hier stehen alle Dateinamen und Parameter an einer Stelle.
+# =============================================================================
 
-ROOT = Path(__file__).resolve().parent
-RAW = ROOT / "data" / "raw"
-PROCESSED = ROOT / "data" / "processed"
-OUT = ROOT / "outputs"
+# Ordner
+ORDNER = Path(__file__).parent              # der Ordner, in dem dieses Skript liegt
+ROHDATEN = ORDNER / "data" / "raw"
+AUFBEREITET = ORDNER / "data" / "processed"
+AUSGABE = ORDNER / "outputs"
 
-# Geodaten der Berliner LOR-Planungsräume (GeoJSON mit Geometrie)
-BOUNDARIES_FILE = RAW / "planungsraeume.geojson"  # GeoJSON von ODIS Berlin
-BOUNDARY_COLUMNS = ["plr_id", "plr_name", "pgr_id", "bez", "stadtraum_name", "geometry"]
+# Eingabedateien
+DATEI_PLANUNGSRAEUME = ROHDATEN / "planungsraeume.geojson"
+DATEI_MSS_TABELLE_1 = ROHDATEN / "sozialdaten.xlsx"                            # Einwohner
+DATEI_MSS_TABELLE_2 = ROHDATEN / "mss2025_indexindikatoren_anteile_plr.xlsx"   # S1 bis S4
+DATEI_MSS_TABELLE_3 = ROHDATEN / "mss2025_indexindikatoren_zwerte_plr.xlsx"    # amtlicher Status-Index
+DATEI_MIETEN = ROHDATEN / "Mietdaten.xlsx"
+MIETEN_BLATT = "Planungsräume_2025"
+DATEI_LAERM = AUFBEREITET / "laermdaten_aggregiert.csv"                       # erzeugt von aggregate_noise.py
 
-# MSS 2025. Die Tabellen werden über die achtstellige PLR-ID erkannt, nicht über
-# feste Kopfzeilen. Werte = Spaltenposition in der jeweiligen Excel-Tabelle.
-SOCIAL_STATUS_FILE = RAW / "sozialdaten.xlsx"                            # Tabelle 1
-SOCIAL_INDICATOR_FILE = RAW / "mss2025_indexindikatoren_anteile_plr.xlsx"  # Tabelle 2.1
-SOCIAL_ZVALUE_FILE = RAW / "mss2025_indexindikatoren_zwerte_plr.xlsx"      # Tabelle 3
-SOCIAL_INDICATOR_COLUMNS = {
-    "arbeitslosenanteil_prozent": 3,    # S1: Arbeitslose nach SGB II
-    "alleinerziehende_prozent": 4,      # S2: Kinder in alleinerziehenden Haushalten
-    "transferbezugsanteil_prozent": 5,  # S3: Transferbezug SGB II und XII
-    "kinderarmut_prozent": 6,           # S4: Kinder unter 15 in SGB-II-Bedarfsgemeinschaften
-}
-SOCIAL_INDICATORS = list(SOCIAL_INDICATOR_COLUMNS)
+# Parameter der Analyse
+MINDEST_INSERATE = 21          # weniger Mietinserate gelten laut IBB als nicht repräsentativ
+ANZAHL_CLUSTER = 4             # k für K-Means (Begründung: Elbow-Plot und Interpretierbarkeit)
+CLUSTER_SCHWELLE = 0.25        # ab dieser Abweichung (in SD) heißt ein Clustermerkmal "hoch"/"niedrig"
+ZUFALLSZAHL = 42               # fester Startwert, damit bei jedem Lauf dasselbe herauskommt
+MORAN_PERMUTATIONEN = 999      # so oft werden die Werte beim Moran-Test zufällig gemischt
+SIGNIFIKANZNIVEAU = 0.05
 
-# Mietdaten: IBB-Tabelle mit Planungsraum-ID (Spalte 1), Median (4) und Fallzahl (6).
-RENT_FILE = RAW / "Mietdaten.xlsx"
-RENT_SHEET = "Planungsräume_2025"
+# Spaltennamen, die mehrfach gebraucht werden
+INDIKATOREN = [
+    "arbeitslosenanteil_prozent",    # S1 Arbeitslosigkeit
+    "alleinerziehende_prozent",      # S2 Kinder in Alleinerziehenden-Haushalten
+    "transferbezugsanteil_prozent",  # S3 Transferbezug
+    "kinderarmut_prozent",           # S4 Kinderarmut
+]
+KONTROLLVARIABLEN = ["log_einwohnerdichte", "innere_stadt"]
+CLUSTER_MERKMALE = ["laerm_gesamt_lden_db", "benachteiligungsindex", "angebotsmiete_median_eur_m2"]
+QUINTIL_NAMEN = ["Q1\ngeringste", "Q2", "Q3", "Q4", "Q5\nstärkste"]
 
-# Lärmdaten: aggregierte Fassadenpegel aus aggregate_noise.py
-NOISE_CSV = PROCESSED / "laermdaten_aggregiert.csv"
-NOISE_COLUMNS = ["laerm_gesamt_lden_db", "anteil_fassaden_lden_ueber_65_prozent"]
-
-# Kontrollvariablen der multiplen Regression
-CONTROL_VARIABLES = ["log_einwohnerdichte", "innere_stadt"]
-
-# Räumliche Korrektur der Standardfehler: Planungsräume desselben Prognoseraums
-# (58 Gruppen) werden als ein "Cluster" behandelt, weil Nachbarn sich ähneln.
-CLUSTER_SE_COLUMN = "pgr_id"
-
-# IBB-Angebotsmieten mit sehr wenigen Inseraten sind instabil (IBB-Grenze: 21).
-MIN_RENT_LISTINGS = 21
-
-# K-Means: k=4 ergibt eine interpretierbare Typologie laut/leise x benachteiligt/
-# wohlhabend; die Elbow-Kurve zeigt ab k=4 nur noch geringe Verbesserungen.
-N_CLUSTERS = 4
-CLUSTER_FEATURES = ["laerm_gesamt_lden_db", "benachteiligungsindex", "angebotsmiete_median_eur_m2"]
-# Clusterbenennung: |z-Mittelwert| > Schwelle -> "hoch"/"niedrig", sonst "mittel"
-CLUSTER_LEVEL_THRESHOLD_Z = 0.25
-
-# Reproduzierbarkeit
-RANDOM_STATE = 42
-MORAN_PERMUTATIONS = 999
-SIGNIFICANCE_LEVEL = 0.05
-
-
-# ---------------------------------------------------------------------------
-# 2. HILFSFUNKTIONEN
-# ---------------------------------------------------------------------------
-
-DEUTSCHE_BESCHRIFTUNG = {
+# Deutsche Beschriftungen für Grafiken
+BESCHRIFTUNG = {
     "laerm_gesamt_lden_db": "Gesamtlärm LDEN [dB(A)]",
     "anteil_fassaden_lden_ueber_65_prozent": "Fassaden > 65 dB(A) LDEN [%]",
     "arbeitslosenanteil_prozent": "S1 Arbeitslosigkeit [%]",
@@ -124,534 +100,730 @@ DEUTSCHE_BESCHRIFTUNG = {
     "benachteiligungsindex": "Benachteiligungsindex (PC1, z)",
     "angebotsmiete_median_eur_m2": "Median-Angebotsmiete [EUR/m²]",
     "einwohnerdichte": "Einwohnerdichte [EW/km²]",
-    "log_einwohnerdichte": "log(1 + Einwohnerdichte)",
-    "innere_stadt": "Innere Stadt (0/1)",
 }
 
 
-def label(col: str) -> str:
-    return DEUTSCHE_BESCHRIFTUNG.get(col, col)
+# =============================================================================
+# HILFSFUNKTIONEN
+# Kleine Werkzeuge, die in mehreren Schritten benutzt werden.
+# =============================================================================
+
+def p_wert_text(p):
+    """Macht aus einem p-Wert einen kurzen Text, z. B. 'p = 0.289' oder 'p < 0.001'."""
+    if p < 0.001:
+        return "p < 0.001"
+    return f"p = {p:.3f}"
 
 
-def p_text(p: float) -> str:
-    return "p < 0.001" if p < 0.001 else f"p = {p:.3f}"
-
-
-def normalize_plr_id(series: pd.Series) -> pd.Series:
-    """PLR-ID als achtstellige Zeichenkette vereinheitlichen."""
-    s = series.astype("string").str.strip()
-    s = s.str.replace(r"\.0$", "", regex=True)
-    return s.str.zfill(8)
-
-
-def to_number(series: pd.Series) -> pd.Series:
-    return pd.to_numeric(series, errors="coerce")
-
-
-def read_plr_rows(path: Path, sheet, id_col: int) -> pd.DataFrame:
-    """Liest nur die Zeilen einer Excel-Tabelle, die eine gültige PLR-ID enthalten.
-
-    So werden Titel-, Kopf- und Fußnotenzeilen zuverlässig ignoriert.
-    """
-    if not path.exists():
-        raise FileNotFoundError(f"Datei nicht gefunden: {path}")
-    raw = pd.read_excel(path, sheet_name=sheet, header=None, dtype={id_col: str})
-    ids = normalize_plr_id(raw[id_col])
-    rows = raw.loc[ids.str.fullmatch(r"\d{8}").fillna(False)].copy()
-    rows[id_col] = ids[rows.index]
-    if rows[id_col].duplicated().any():
-        raise ValueError(f"Doppelte PLR-IDs in {path.name} ({sheet}).")
-    return rows.reset_index(drop=True)
-
-
-def save_figure(fig, name: str, dpi: int = 170) -> None:
+def grafik_speichern(fig, dateiname, dpi=170):
+    """Speichert eine Grafik als PNG im Ausgabeordner und schließt sie."""
     fig.tight_layout()
-    fig.savefig(OUT / name, dpi=dpi)
+    fig.savefig(AUSGABE / dateiname, dpi=dpi)
     plt.close(fig)
 
 
-# ---------------------------------------------------------------------------
-# 3. DATENIMPORT UND ZUSAMMENFÜHRUNG
-# ---------------------------------------------------------------------------
+def excel_zeilen_mit_plr_id(datei, blatt, id_spalte):
+    """Liest eine Excel-Tabelle der Behörden und behält nur die Zeilen mit einer Planungsraum-ID.
 
-def load_boundaries() -> gpd.GeoDataFrame:
-    if not BOUNDARIES_FILE.exists():
-        raise FileNotFoundError(f"Planungsraum-Daten fehlen: {BOUNDARIES_FILE}")
-    gdf = gpd.read_file(BOUNDARIES_FILE)
-    if gdf.crs is None:
-        raise ValueError("Die Planungsraum-Geodaten haben kein CRS. Koordinatensystem klären!")
-    gdf["plr_id"] = normalize_plr_id(gdf["plr_id"])
-    return gdf[BOUNDARY_COLUMNS].drop_duplicates("plr_id")
+    Die Tabellen haben Titel, Überschriften und Fußnoten. Statt die richtigen Zeilen
+    von Hand abzuzählen, behalten wir einfach alle Zeilen, in denen in der ID-Spalte
+    eine achtstellige Zahl steht (z. B. "01100101").
+    """
+    # header=None: Excel-Zeilen nicht als Spaltennamen benutzen. Die Spalten heißen dann 0, 1, 2, ...
+    tabelle = pd.read_excel(datei, sheet_name=blatt, header=None, dtype={id_spalte: str})
 
+    # ID-Spalte als Text vereinheitlichen: Leerzeichen weg, ".0" weg, auf 8 Stellen mit Nullen auffüllen
+    ids = tabelle[id_spalte].astype(str).str.strip()
+    ids = ids.str.replace(".0", "", regex=False)
+    ids = ids.str.zfill(8)
 
-def load_social() -> pd.DataFrame:
-    """MSS 2025: Einwohner (Tab. 1), Indikatoren S1-S4 (Tab. 2.1), amtlicher Status-Index (Tab. 3)."""
-    status = read_plr_rows(SOCIAL_STATUS_FILE, 0, 0)
-    social = pd.DataFrame({"plr_id": status[0], "einwohner": to_number(status[2])})
+    # Eine Zeile ist gültig, wenn die ID aus genau 8 Ziffern besteht
+    ist_gueltig = ids.str.isdigit() & (ids.str.len() == 8)
+    tabelle = tabelle[ist_gueltig].copy()
+    tabelle[id_spalte] = ids[ist_gueltig]
 
-    indicator_rows = read_plr_rows(SOCIAL_INDICATOR_FILE, 0, 0)
-    indicators = pd.DataFrame({"plr_id": indicator_rows[0]})
-    for name, position in SOCIAL_INDICATOR_COLUMNS.items():
-        indicators[name] = to_number(indicator_rows[position])
-
-    zvalue_rows = read_plr_rows(SOCIAL_ZVALUE_FILE, 0, 0)
-    official = pd.DataFrame({"plr_id": zvalue_rows[0], "mss_statusindex": to_number(zvalue_rows[8])})
-
-    social = social.merge(indicators, on="plr_id", how="left", validate="one_to_one")
-    return social.merge(official, on="plr_id", how="left", validate="one_to_one")
+    if tabelle[id_spalte].duplicated().any():
+        raise ValueError(f"Doppelte Planungsraum-IDs in {datei.name}")
+    return tabelle
 
 
-def load_rents() -> pd.DataFrame:
-    """Liest IBB-Planungsraummieten (Median und Zahl der Inserate)."""
-    rows = read_plr_rows(RENT_FILE, RENT_SHEET, 1)
-    return pd.DataFrame({
-        "plr_id": rows[1],
-        "plr_name_ibb": rows[2].astype("string").str.strip(),
-        "angebotsmiete_median_roh": to_number(rows[4]),
-        "anzahl_mietinserate": to_number(rows[6]),
-    })
+def bezirksgrenzen_zeichnen(ax, daten, mit_namen=False):
+    """Zeichnet die 12 Berliner Bezirksgrenzen als schwarze Linien in eine Karte."""
+    # dissolve: alle Planungsräume eines Bezirks zu einer Fläche verschmelzen
+    bezirke = daten[["bez", "geometry"]].dissolve(by="bez")
+    bezirke.boundary.plot(ax=ax, color="black", linewidth=0.7)
+
+    if mit_namen:
+        for bezirk_name, flaeche in bezirke.geometry.items():
+            punkt = flaeche.representative_point()     # ein Punkt sicher innerhalb der Fläche
+            kurzname = bezirk_name.split(" - ")[-1]    # "08 - Neukölln" -> "Neukölln"
+            ax.annotate(kurzname, (punkt.x, punkt.y), ha="center", fontsize=7,
+                        bbox={"boxstyle": "round,pad=0.15", "fc": "white", "alpha": 0.6, "lw": 0})
 
 
-def load_noise() -> pd.DataFrame:
-    if not NOISE_CSV.exists():
-        raise FileNotFoundError(f"Keine Lärmdaten gefunden: {NOISE_CSV}. Bitte zuerst aggregate_noise.py ausführen.")
-    noise = pd.read_csv(NOISE_CSV, dtype={"plr_id": str})
-    noise["plr_id"] = normalize_plr_id(noise["plr_id"])
-    return noise[["plr_id", *NOISE_COLUMNS]]
+# =============================================================================
+# SCHRITT 1: DATEN LADEN UND VERKNÜPFEN
+# =============================================================================
+
+def daten_laden():
+    print("\n[1] Daten laden und verknüpfen ...")
+
+    # --- 1a) Planungsräume (Gebietsgrenzen) -----------------------------------
+    daten = gpd.read_file(DATEI_PLANUNGSRAEUME)
+    daten["plr_id"] = daten["plr_id"].astype(str).str.zfill(8)
+    daten = daten[["plr_id", "plr_name", "pgr_id", "bez", "stadtraum_name", "geometry"]]
+
+    # --- 1b) Sozialdaten aus den drei MSS-Tabellen ----------------------------
+    # Tabelle 1: Spalte 0 = ID, Spalte 2 = Einwohner
+    tabelle1 = excel_zeilen_mit_plr_id(DATEI_MSS_TABELLE_1, 0, 0)
+    einwohner = pd.DataFrame()
+    einwohner["plr_id"] = tabelle1[0]
+    einwohner["einwohner"] = pd.to_numeric(tabelle1[2], errors="coerce")
+
+    # Tabelle 2.1: Spalten 3 bis 6 = Indikatoren S1 bis S4 (in Prozent)
+    tabelle2 = excel_zeilen_mit_plr_id(DATEI_MSS_TABELLE_2, 0, 0)
+    indikatoren = pd.DataFrame()
+    indikatoren["plr_id"] = tabelle2[0]
+    indikatoren["arbeitslosenanteil_prozent"] = pd.to_numeric(tabelle2[3], errors="coerce")
+    indikatoren["alleinerziehende_prozent"] = pd.to_numeric(tabelle2[4], errors="coerce")
+    indikatoren["transferbezugsanteil_prozent"] = pd.to_numeric(tabelle2[5], errors="coerce")
+    indikatoren["kinderarmut_prozent"] = pd.to_numeric(tabelle2[6], errors="coerce")
+
+    # Tabelle 3: Spalte 8 = amtlicher Status-Index (nur zur Kontrolle der PCA)
+    tabelle3 = excel_zeilen_mit_plr_id(DATEI_MSS_TABELLE_3, 0, 0)
+    amtlicher_index = pd.DataFrame()
+    amtlicher_index["plr_id"] = tabelle3[0]
+    amtlicher_index["mss_statusindex"] = pd.to_numeric(tabelle3[8], errors="coerce")
+
+    # --- 1c) Mietdaten der IBB --------------------------------------------------
+    # Spalte 1 = ID, Spalte 2 = Name, Spalte 4 = Median-Miete, Spalte 6 = Anzahl Inserate
+    tabelle_mieten = excel_zeilen_mit_plr_id(DATEI_MIETEN, MIETEN_BLATT, 1)
+    mieten = pd.DataFrame()
+    mieten["plr_id"] = tabelle_mieten[1]
+    mieten["plr_name_ibb"] = tabelle_mieten[2].astype(str).str.strip()
+    mieten["angebotsmiete_median_roh"] = pd.to_numeric(tabelle_mieten[4], errors="coerce")
+    mieten["anzahl_mietinserate"] = pd.to_numeric(tabelle_mieten[6], errors="coerce")
+
+    # --- 1d) Lärmdaten (von aggregate_noise.py vorbereitet) --------------------
+    laerm = pd.read_csv(DATEI_LAERM, dtype={"plr_id": str})
+    laerm["plr_id"] = laerm["plr_id"].str.zfill(8)
+    laerm = laerm[["plr_id", "laerm_gesamt_lden_db", "anteil_fassaden_lden_ueber_65_prozent"]]
+
+    # --- 1e) Alles über die Planungsraum-ID verknüpfen --------------------------
+    # how="left": alle 542 Planungsräume bleiben erhalten, auch wenn Werte fehlen.
+    # validate="one_to_one": Abbruch, falls eine ID doppelt vorkommt.
+    daten = daten.merge(einwohner, on="plr_id", how="left", validate="one_to_one")
+    daten = daten.merge(indikatoren, on="plr_id", how="left", validate="one_to_one")
+    daten = daten.merge(amtlicher_index, on="plr_id", how="left", validate="one_to_one")
+    daten = daten.merge(mieten, on="plr_id", how="left", validate="one_to_one")
+    daten = daten.merge(laerm, on="plr_id", how="left", validate="one_to_one")
+
+    # --- 1f) Kontrolle: Stimmen die Gebietsnamen der IBB mit den offiziellen überein? ---
+    hat_ibb_namen = daten["plr_name_ibb"].notna()
+    name_anders = daten["plr_name"] != daten["plr_name_ibb"]
+    abweichungen = daten.loc[hat_ibb_namen & name_anders, ["plr_id", "plr_name", "plr_name_ibb"]]
+    abweichungen.to_csv(AUSGABE / "pruefung_namensabweichungen_ibb.csv", index=False)
+
+    # --- 1g) Neue Variablen berechnen ------------------------------------------
+    # Fläche in km²: Die Geometrie ist in Metern, also m² / 1.000.000
+    flaeche_km2 = daten.geometry.area / 1_000_000
+    daten["einwohnerdichte"] = daten["einwohner"] / flaeche_km2
+    # Logarithmus staucht sehr große Dichtewerte; +1 verhindert log(0) bei unbewohnten Gebieten
+    daten["log_einwohnerdichte"] = np.log1p(daten["einwohnerdichte"])
+    # 1 = Innere Stadt, 0 = Äußere Stadt
+    daten["innere_stadt"] = (daten["stadtraum_name"] == "Innere Stadt").astype(int)
+
+    # Miete nur übernehmen, wenn genug Inserate vorhanden sind, sonst fehlender Wert (NaN)
+    genug_inserate = daten["anzahl_mietinserate"] >= MINDEST_INSERATE
+    daten["angebotsmiete_median_eur_m2"] = daten["angebotsmiete_median_roh"].where(genug_inserate)
+
+    # --- 1h) Qualitätsbericht: Wie viele gültige und fehlende Werte hat jede Spalte? ---
+    spalten = []
+    for spalte in daten.columns:
+        if spalte not in ["geometry", "plr_id", "plr_name", "plr_name_ibb"]:
+            spalten.append(spalte)
+    qualitaet = pd.DataFrame()
+    qualitaet["gueltig"] = daten[spalten].notna().sum()
+    qualitaet["fehlend"] = daten[spalten].isna().sum()
+    qualitaet.to_csv(AUSGABE / "datenqualitaet.csv")
+
+    print("Planungsräume:", len(daten))
+    print("mit Sozialdaten:", daten["kinderarmut_prozent"].notna().sum())
+    print("mit Mietwert:", daten["angebotsmiete_median_eur_m2"].notna().sum())
+    print("IBB-Namensabweichungen:", len(abweichungen))
+    return daten
 
 
-def load_all_data() -> gpd.GeoDataFrame:
-    print("\n[1] Lade Planungsräume, MSS-, Miet- und Lärmdaten ...")
-    data = load_boundaries()
-    for table in (load_social(), load_rents(), load_noise()):
-        data = data.merge(table, on="plr_id", how="left", validate="one_to_one")
-
-    # Namensabgleich: deckt vertauschte oder abweichende Zuordnungen in der IBB-Tabelle auf.
-    name_check = data.loc[
-        data["plr_name_ibb"].notna() & (data["plr_name"] != data["plr_name_ibb"]),
-        ["plr_id", "plr_name", "plr_name_ibb"],
-    ]
-    name_check.to_csv(OUT / "pruefung_namensabweichungen_ibb.csv", index=False)
-
-    # Abgeleitete Variablen
-    data["einwohnerdichte"] = data["einwohner"] / (data.geometry.area / 1e6)
-    data["log_einwohnerdichte"] = np.log1p(data["einwohnerdichte"])
-    data["innere_stadt"] = (data["stadtraum_name"] == "Innere Stadt").astype(int)
-
-    # Angebotsmieten mit zu geringer Fallzahl aus der Analyse nehmen (nicht imputieren).
-    data["angebotsmiete_median_eur_m2"] = data["angebotsmiete_median_roh"].where(
-        data["anzahl_mietinserate"] >= MIN_RENT_LISTINGS
-    )
-
-    quality_cols = [c for c in data.columns if c not in ("geometry", "plr_id", "plr_name", "plr_name_ibb")]
-    quality = pd.DataFrame({"gueltig": data[quality_cols].notna().sum(), "fehlend": data[quality_cols].isna().sum()})
-    quality.to_csv(OUT / "datenqualitaet.csv")
-    print(f"Planungsräume: {len(data)}, mit Sozialdaten: {data['kinderarmut_prozent'].notna().sum()}, "
-          f"mit Mietwert: {data['angebotsmiete_median_eur_m2'].notna().sum()}, IBB-Namensabweichungen: {len(name_check)}")
-    return data
+def daten_speichern(daten):
+    """Speichert den fertigen Datensatz (mit Index, Quintil und Cluster) in data/processed/."""
+    kopie = daten.copy()
+    # Das GeoPackage-Format kennt keine Kategorien, deshalb das Quintil als Text speichern
+    kopie["deprivationsquintil"] = kopie["deprivationsquintil"].astype("string")
+    kopie.to_file(AUFBEREITET / "berlin_merged.gpkg", driver="GPKG")
+    kopie.drop(columns="geometry").to_csv(AUFBEREITET / "berlin_merged.csv", index=False)
 
 
-def save_merged(data: gpd.GeoDataFrame) -> None:
-    out = data.copy()
-    out["deprivationsquintil"] = out["deprivationsquintil"].astype("string")
-    out.to_file(PROCESSED / "berlin_merged.gpkg", driver="GPKG")
-    out.drop(columns="geometry").to_csv(PROCESSED / "berlin_merged.csv", index=False)
+# =============================================================================
+# SCHRITT 2: PCA -> BENACHTEILIGUNGSINDEX
+# =============================================================================
 
-
-# ---------------------------------------------------------------------------
-# 4. PCA: BENACHTEILIGUNGSINDEX AUS DEN MSS-STATUS-INDIKATOREN
-# ---------------------------------------------------------------------------
-
-def run_pca_benachteiligungsindex(df: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
-    """Standardisierung + PCA über S1-S4; PC1 wird der Benachteiligungsindex."""
+def pca_benachteiligungsindex(daten):
     print("\n[2] PCA: Benachteiligungsindex aus S1-S4 ...")
-    X = df[SOCIAL_INDICATORS].dropna()
-    X_scaled = StandardScaler().fit_transform(X)
+
+    # Nur Gebiete, bei denen alle vier Indikatoren vorhanden sind (535 Stück)
+    indikator_daten = daten[INDIKATOREN].dropna()
+
+    # 2a) Standardisieren: jede Spalte bekommt Mittelwert 0 und Standardabweichung 1
+    z_werte = StandardScaler().fit_transform(indikator_daten)
+
+    # 2b) PCA berechnen
     pca = PCA()
-    components = pca.fit_transform(X_scaled)
-    names = [f"PC{i + 1}" for i in range(len(SOCIAL_INDICATORS))]
+    hauptkomponenten = pca.fit_transform(z_werte)   # Werte jedes Gebiets auf PC1 bis PC4
+    eigenwerte = pca.explained_variance_
+    erklaerte_varianz = pca.explained_variance_ratio_
 
-    pd.DataFrame({
-        "component": names,
-        "eigenvalue": pca.explained_variance_,
-        "explained_variance_ratio": pca.explained_variance_ratio_,
-    }).to_csv(OUT / "pca_explained_variance.csv", index=False)
+    varianz_tabelle = pd.DataFrame()
+    varianz_tabelle["component"] = ["PC1", "PC2", "PC3", "PC4"]
+    varianz_tabelle["eigenvalue"] = eigenwerte
+    varianz_tabelle["explained_variance_ratio"] = erklaerte_varianz
+    varianz_tabelle.to_csv(AUSGABE / "pca_explained_variance.csv", index=False)
 
-    # Ladungen = Korrelation zwischen Indikator und Komponente
-    loadings = pd.DataFrame(pca.components_.T * np.sqrt(pca.explained_variance_), index=SOCIAL_INDICATORS, columns=names)
-    # Vorzeichen so festlegen, dass höhere Werte stärkere Benachteiligung bedeuten.
-    sign = np.sign(loadings["PC1"].sum())
-    loadings["PC1"] *= sign
-    loadings.to_csv(OUT / "pca_loadings.csv")
-    pc1 = sign * components[:, 0]
+    # 2c) Ladungen = Korrelation zwischen Indikator und Hauptkomponente (Eigenvektor * Wurzel(Eigenwert))
+    ladungen = pd.DataFrame(pca.components_.T * np.sqrt(eigenwerte),
+                            index=INDIKATOREN, columns=["PC1", "PC2", "PC3", "PC4"])
 
-    df = df.copy()
-    df.loc[X.index, "benachteiligungsindex"] = (pc1 - pc1.mean()) / pc1.std(ddof=1)
+    # 2d) Das Vorzeichen einer PCA ist zufällig. Wir drehen es so, dass hohe Werte = mehr Benachteiligung.
+    pc1 = hauptkomponenten[:, 0]          # erste Spalte = PC1
+    if ladungen["PC1"].sum() < 0:
+        ladungen["PC1"] = -ladungen["PC1"]
+        pc1 = -pc1
+    ladungen.to_csv(AUSGABE / "pca_loadings.csv")
 
-    valid = df[["benachteiligungsindex", "mss_statusindex"]].dropna()
-    r_official = np.corrcoef(valid["benachteiligungsindex"], valid["mss_statusindex"])[0, 1]
-    report = (
-        f"PCA über {len(SOCIAL_INDICATORS)} MSS-Status-Indikatoren, n = {len(X)} Planungsräume\n"
-        f"Eigenwerte: {np.round(pca.explained_variance_, 3).tolist()}\n"
-        f"Erklärte Varianz PC1: {pca.explained_variance_ratio_[0]:.1%}\n\n"
-        f"Ladungen PC1:\n{loadings['PC1'].round(3).to_string()}\n\n"
-        f"Übereinstimmung mit dem amtlichen MSS-Status-Index: r = {r_official:.3f}\n"
+    # 2e) PC1 noch einmal standardisieren (Mittelwert 0, SD 1) und als neue Spalte speichern
+    index = (pc1 - pc1.mean()) / pc1.std(ddof=1)
+    daten.loc[indikator_daten.index, "benachteiligungsindex"] = index
+
+    # 2f) Kontrolle: Wie stark stimmt unser Index mit dem amtlichen Index überein?
+    vergleich = daten[["benachteiligungsindex", "mss_statusindex"]].dropna()
+    r = np.corrcoef(vergleich["benachteiligungsindex"], vergleich["mss_statusindex"])[0, 1]
+
+    bericht = (
+        f"PCA über {len(INDIKATOREN)} MSS-Status-Indikatoren, n = {len(indikator_daten)} Planungsräume\n"
+        f"Eigenwerte: {np.round(eigenwerte, 3).tolist()}\n"
+        f"Erklärte Varianz PC1: {erklaerte_varianz[0]:.1%}\n\n"
+        f"Ladungen PC1:\n{ladungen['PC1'].round(3).to_string()}\n\n"
+        f"Übereinstimmung mit dem amtlichen MSS-Status-Index: r = {r:.3f}\n"
         "Der Index ist z-standardisiert (Mittelwert 0, SD 1); höhere Werte = stärkere Benachteiligung.\n"
     )
-    (OUT / "pca_bericht.txt").write_text(report, encoding="utf-8")
-    print(report)
+    (AUSGABE / "pca_bericht.txt").write_text(bericht, encoding="utf-8")
+    print(bericht)
 
-    fig, axes = plt.subplots(1, 2, figsize=(12, 4.5))
-    axes[0].bar(names, pca.explained_variance_ratio_ * 100, color="steelblue")
-    axes[0].set_title("Scree-Plot")
-    axes[0].set_ylabel("Erklärte Varianz [%]")
-    loadings["PC1"].rename(index=label).sort_values().plot.barh(ax=axes[1], color="darkorange")
-    axes[1].set_title(f"Ladungen PC1 ({pca.explained_variance_ratio_[0]:.1%} erklärte Varianz)")
-    axes[1].set_xlim(0, 1)
-    save_figure(fig, "pca_scree_ladungen.png")
-    return df
+    # 2g) Grafik: links Scree-Plot, rechts Ladungen von PC1
+    fig, (ax_links, ax_rechts) = plt.subplots(1, 2, figsize=(12, 4.5))
+    ax_links.bar(["PC1", "PC2", "PC3", "PC4"], erklaerte_varianz * 100, color="steelblue")
+    ax_links.set_title("Scree-Plot")
+    ax_links.set_ylabel("Erklärte Varianz [%]")
 
-
-# ---------------------------------------------------------------------------
-# 5. DESKRIPTIVE STATISTIK UND ANOVA
-# ---------------------------------------------------------------------------
-
-EDA_COLUMNS = [
-    "laerm_gesamt_lden_db", "anteil_fassaden_lden_ueber_65_prozent", "benachteiligungsindex",
-    *SOCIAL_INDICATORS, "angebotsmiete_median_eur_m2", "einwohnerdichte",
-]
+    ladungen_pc1 = ladungen["PC1"].rename(index=BESCHRIFTUNG).sort_values()
+    ax_rechts.barh(ladungen_pc1.index, ladungen_pc1.values, color="darkorange")
+    ax_rechts.set_title(f"Ladungen PC1 ({erklaerte_varianz[0]:.1%} erklärte Varianz)")
+    ax_rechts.set_xlim(0, 1)
+    grafik_speichern(fig, "pca_scree_ladungen.png")
+    return daten
 
 
-def run_descriptive(df: gpd.GeoDataFrame) -> None:
+# =============================================================================
+# SCHRITT 3: DESKRIPTIVE STATISTIK
+# =============================================================================
+
+def deskriptive_statistik(daten):
     print("\n[3] Deskriptive Statistik ...")
-    summary = df[EDA_COLUMNS].describe().T
-    summary["variance"] = df[EDA_COLUMNS].var()
-    summary.to_csv(OUT / "descriptive_statistics.csv")
-    print(summary.round(2).to_string())
+    spalten = [
+        "laerm_gesamt_lden_db", "anteil_fassaden_lden_ueber_65_prozent", "benachteiligungsindex",
+        "arbeitslosenanteil_prozent", "alleinerziehende_prozent", "transferbezugsanteil_prozent",
+        "kinderarmut_prozent", "angebotsmiete_median_eur_m2", "einwohnerdichte",
+    ]
 
-    fig, axes = plt.subplots(3, 3, figsize=(13, 10))
-    for ax, col in zip(axes.flat, EDA_COLUMNS):
-        sns.histplot(df[col].dropna(), kde=True, ax=ax)
-        ax.set_title(label(col), fontsize=9)
+    # 3a) Kennzahlen: Anzahl, Mittelwert, Standardabweichung, Minimum, Quartile, Maximum, Varianz
+    kennzahlen = daten[spalten].describe().T
+    kennzahlen["variance"] = daten[spalten].var()
+    kennzahlen.to_csv(AUSGABE / "descriptive_statistics.csv")
+    print(kennzahlen.round(2).to_string())
+
+    # 3b) Histogramme: 9 Variablen in einem Raster aus 3 x 3 Feldern
+    fig, achsen = plt.subplots(3, 3, figsize=(13, 10))
+    achsen = achsen.flatten()                     # aus dem 3x3-Raster eine einfache Liste machen
+    for i in range(len(spalten)):
+        spalte = spalten[i]
+        ax = achsen[i]
+        sns.histplot(daten[spalte].dropna(), kde=True, ax=ax)
+        ax.set_title(BESCHRIFTUNG[spalte], fontsize=9)
         ax.set_xlabel("")
     fig.suptitle("Verteilungen der Analysevariablen")
-    save_figure(fig, "histogramme.png")
+    grafik_speichern(fig, "histogramme.png")
 
-    corr = df[EDA_COLUMNS].corr()
+    # 3c) Korrelationsmatrix als farbige Tabelle (Heatmap)
+    korrelation = daten[spalten].corr()
+    korrelation = korrelation.rename(index=BESCHRIFTUNG, columns=BESCHRIFTUNG)
     fig, ax = plt.subplots(figsize=(10, 8))
-    sns.heatmap(corr.rename(index=label, columns=label), annot=True, cmap="vlag", center=0, fmt=".2f", ax=ax)
+    sns.heatmap(korrelation, annot=True, cmap="vlag", center=0, fmt=".2f", ax=ax)
     ax.set_title("Korrelationsmatrix (Überblick)")
-    save_figure(fig, "korrelationsmatrix.png")
+    grafik_speichern(fig, "korrelationsmatrix.png")
 
 
-def run_anova(df: gpd.GeoDataFrame) -> float:
-    """ANOVA: Unterscheidet sich der mittlere Lärm zwischen den Benachteiligungs-Quintilen?
+# =============================================================================
+# SCHRITT 4: ANOVA
+# Unterscheidet sich der mittlere Lärm zwischen den fünf Benachteiligungs-Quintilen?
+# =============================================================================
 
-    Anders als die Regression setzt die ANOVA keinen linearen Verlauf voraus.
-    """
+def anova(daten):
     print("\n[4] ANOVA: Lärm nach Quintilen des Benachteiligungsindex ...")
-    sub = df[["deprivationsquintil", "laerm_gesamt_lden_db"]].dropna()
-    groups = [g["laerm_gesamt_lden_db"] for _, g in sub.groupby("deprivationsquintil", observed=True)]
-    anova = stats.f_oneway(*groups)
-    profile = sub.groupby("deprivationsquintil", observed=True)["laerm_gesamt_lden_db"].agg(["count", "mean", "median", "std"])
-    profile.to_csv(OUT / "anova_profile.csv")
-    (OUT / "anova_ergebnis.txt").write_text(
-        f"ANOVA Lärm (LDEN) ~ Quintil des Benachteiligungsindex\nF = {anova.statistic:.3f}, {p_text(anova.pvalue)}\n\n"
-        f"{profile.round(2).to_string()}\n", encoding="utf-8")
-    print(f"F = {anova.statistic:.2f}, {p_text(anova.pvalue)}")
-    print(profile.round(2).to_string())
-    return anova.pvalue
+
+    # 4a) Für jedes Quintil die Lärmwerte als eigene Gruppe sammeln
+    gruppen = []
+    for quintil in QUINTIL_NAMEN:
+        ist_im_quintil = daten["deprivationsquintil"] == quintil
+        laerm_werte = daten.loc[ist_im_quintil, "laerm_gesamt_lden_db"].dropna()
+        gruppen.append(laerm_werte)
+
+    # 4b) ANOVA (scipy): vergleicht die Streuung zwischen den Gruppen mit der Streuung innerhalb
+    ergebnis = stats.f_oneway(gruppen[0], gruppen[1], gruppen[2], gruppen[3], gruppen[4])
+    f_wert = ergebnis.statistic
+    p_wert = ergebnis.pvalue
+
+    # 4c) Kennzahlen je Quintil
+    profil = daten.groupby("deprivationsquintil", observed=True)["laerm_gesamt_lden_db"].agg(
+        ["count", "mean", "median", "std"])
+    profil.to_csv(AUSGABE / "anova_profile.csv")
+
+    text = (f"ANOVA Lärm (LDEN) ~ Quintil des Benachteiligungsindex\n"
+            f"F = {f_wert:.3f}, {p_wert_text(p_wert)}\n\n{profil.round(2).to_string()}\n")
+    (AUSGABE / "anova_ergebnis.txt").write_text(text, encoding="utf-8")
+    print(f"F = {f_wert:.2f}, {p_wert_text(p_wert)}")
+    print(profil.round(2).to_string())
+    return p_wert
 
 
-# ---------------------------------------------------------------------------
-# 6. MULTIPLE LINEARE REGRESSION
-# ---------------------------------------------------------------------------
+# =============================================================================
+# SCHRITT 5: MULTIPLE LINEARE REGRESSION
+# =============================================================================
 
-def run_regressions(df: gpd.GeoDataFrame) -> dict:
-    """A1: Lärm ~ Benachteiligung. A2: zusätzlich Dichte und Lage. B: Miete ~ Lärm + Benachteiligung + Kontrollen.
+def regression_rechnen(daten, zielvariable, einflussvariablen):
+    """Schätzt ein Regressionsmodell zweimal: klassisch und mit räumlich korrigierten Standardfehlern.
 
-    Jedes Modell wird zweimal geschätzt: mit klassischen OLS-Standardfehlern und mit
-    nach Prognoseraum geclusterten Standardfehlern. Die Koeffizienten sind identisch,
-    nur die Unsicherheit (Standardfehler, p-Wert) unterscheidet sich. Für die
-    Interpretation sind die geclusterten Werte maßgeblich.
+    Die Koeffizienten sind in beiden Fällen gleich. Unterschiedlich ist nur, wie unsicher
+    sie eingeschätzt werden (Standardfehler, p-Wert).
     """
+    # Nur Gebiete ohne fehlende Werte in den benötigten Spalten
+    spalten = [zielvariable] + einflussvariablen + ["pgr_id"]
+    modell_daten = daten[spalten].dropna()
+
+    y = modell_daten[zielvariable]
+    X = sm.add_constant(modell_daten[einflussvariablen].astype(float))   # Konstante = Achsenabschnitt
+
+    # Klassische OLS-Regression
+    modell_klassisch = sm.OLS(y, X).fit()
+
+    # Räumlich korrigiert: Planungsräume im selben Prognoseraum werden als Gruppe behandelt.
+    # factorize macht aus den Prognoseraum-IDs einfache Gruppennummern 0, 1, 2, ...
+    prognoseraum_nummer = pd.factorize(modell_daten["pgr_id"])[0]
+    modell_korrigiert = sm.OLS(y, X).fit(cov_type="cluster", cov_kwds={"groups": prognoseraum_nummer})
+
+    return modell_klassisch, modell_korrigiert
+
+
+def regressionen(daten):
     print("\n[5] Multiple lineare Regression ...")
-    noise, rent, index = "laerm_gesamt_lden_db", "angebotsmiete_median_eur_m2", "benachteiligungsindex"
-    specs = {
-        "A1_laerm_einfach": (noise, [index]),
-        "A2_laerm_kontrollen": (noise, [index, *CONTROL_VARIABLES]),
-        "B_miete": (rent, [noise, index, *CONTROL_VARIABLES]),
-    }
-    models, rows = {"ols": {}, "cluster": {}}, []
-    for name, (target, predictors) in specs.items():
-        model_data = df[[target, *predictors, CLUSTER_SE_COLUMN]].dropna()
-        y = model_data[target]
-        X = sm.add_constant(model_data[predictors].astype(float))
-        groups = pd.factorize(model_data[CLUSTER_SE_COLUMN])[0]
-        ols = sm.OLS(y, X).fit()
-        clustered = sm.OLS(y, X).fit(cov_type="cluster", cov_kwds={"groups": groups})
-        models["ols"][name], models["cluster"][name] = ols, clustered
-        (OUT / f"regression_{name}.txt").write_text(
-            "STANDARDFEHLER NACH PROGNOSERAUM GECLUSTERT (maßgeblich)\n"
-            f"{clustered.summary().as_text()}\n\n\n"
-            "KLASSISCHE OLS-STANDARDFEHLER (zum Vergleich)\n"
-            f"{ols.summary().as_text()}\n", encoding="utf-8")
-        rows += [{"modell": name, "zielvariable": target, "term": term, "koeffizient": ols.params[term],
-                  "std_fehler_ols": ols.bse[term], "p_wert_ols": ols.pvalues[term],
-                  "std_fehler_cluster": clustered.bse[term], "p_wert_cluster": clustered.pvalues[term],
-                  "n": int(ols.nobs), "r2": ols.rsquared}
-                 for term in predictors]
-    overview = pd.DataFrame(rows)
-    overview.to_csv(OUT / "regression_uebersicht.csv", index=False)
-    print(overview.round(4).to_string(index=False))
-    return models
+    index = ["benachteiligungsindex"]
+
+    # Die drei Modelle: Name, Zielvariable, Einflussvariablen
+    modell_liste = [
+        ("A1_laerm_einfach", "laerm_gesamt_lden_db", index),
+        ("A2_laerm_kontrollen", "laerm_gesamt_lden_db", index + KONTROLLVARIABLEN),
+        ("B_miete", "angebotsmiete_median_eur_m2", ["laerm_gesamt_lden_db"] + index + KONTROLLVARIABLEN),
+    ]
+
+    modelle = {}          # hier werden alle geschätzten Modelle gesammelt
+    zeilen = []           # hier werden die Zeilen der Übersichtstabelle gesammelt
+
+    for name, zielvariable, einflussvariablen in modell_liste:
+        klassisch, korrigiert = regression_rechnen(daten, zielvariable, einflussvariablen)
+        modelle[name + "_klassisch"] = klassisch
+        modelle[name + "_korrigiert"] = korrigiert
+
+        # Vollständige Ergebnistabellen als Textdatei (korrigierte zuerst)
+        text = ("STANDARDFEHLER NACH PROGNOSERAUM GECLUSTERT (maßgeblich)\n"
+                + korrigiert.summary().as_text() + "\n\n\n"
+                + "KLASSISCHE OLS-STANDARDFEHLER (zum Vergleich)\n"
+                + klassisch.summary().as_text() + "\n")
+        (AUSGABE / f"regression_{name}.txt").write_text(text, encoding="utf-8")
+
+        # Eine Zeile pro Einflussvariable für die Übersicht
+        for variable in einflussvariablen:
+            zeilen.append({
+                "modell": name,
+                "zielvariable": zielvariable,
+                "term": variable,
+                "koeffizient": klassisch.params[variable],
+                "std_fehler_ols": klassisch.bse[variable],
+                "p_wert_ols": klassisch.pvalues[variable],
+                "std_fehler_cluster": korrigiert.bse[variable],
+                "p_wert_cluster": korrigiert.pvalues[variable],
+                "n": int(klassisch.nobs),
+                "r2": klassisch.rsquared,
+            })
+
+    uebersicht = pd.DataFrame(zeilen)
+    uebersicht.to_csv(AUSGABE / "regression_uebersicht.csv", index=False)
+    print(uebersicht.round(4).to_string(index=False))
+    return modelle
 
 
-# ---------------------------------------------------------------------------
-# 7. K-MEANS-CLUSTERING
-# ---------------------------------------------------------------------------
+# =============================================================================
+# SCHRITT 6: K-MEANS-CLUSTERING
+# =============================================================================
 
-def describe_level(z: float) -> str:
-    return "hoch" if z > CLUSTER_LEVEL_THRESHOLD_Z else "niedrig" if z < -CLUSTER_LEVEL_THRESHOLD_Z else "mittel"
+def stufe(z_wert):
+    """Übersetzt einen standardisierten Mittelwert in 'hoch', 'mittel' oder 'niedrig'."""
+    if z_wert > CLUSTER_SCHWELLE:
+        return "hoch"
+    if z_wert < -CLUSTER_SCHWELLE:
+        return "niedrig"
+    return "mittel"
 
 
-def run_clustering(df: gpd.GeoDataFrame) -> pd.Series:
-    """K-Means mit Lärm, Benachteiligungsindex und Mieten (standardisiert)."""
+def kmeans_clustering(daten):
     print("\n[6] K-Means-Clustering ...")
-    X = df[CLUSTER_FEATURES].dropna()
-    X_scaled = StandardScaler().fit_transform(X)
 
-    inertia = {k: KMeans(n_clusters=k, random_state=RANDOM_STATE, n_init=20).fit(X_scaled).inertia_ for k in range(1, 9)}
+    # 6a) Nur Gebiete mit allen drei Merkmalen (434 Stück), dann standardisieren
+    cluster_daten = daten[CLUSTER_MERKMALE].dropna().copy()
+    z_werte = StandardScaler().fit_transform(cluster_daten)
+
+    # 6b) Elbow-Methode: K-Means für k = 1 bis 8 rechnen und die Inertia notieren
+    k_werte = []
+    inertia_werte = []
+    for k in range(1, 9):
+        kmeans = KMeans(n_clusters=k, random_state=ZUFALLSZAHL, n_init=20)
+        kmeans.fit(z_werte)
+        k_werte.append(k)
+        inertia_werte.append(kmeans.inertia_)
+
     fig, ax = plt.subplots(figsize=(6, 4))
-    ax.plot(list(inertia), list(inertia.values()), marker="o")
-    ax.axvline(N_CLUSTERS, color="grey", linestyle="--", label=f"gewählt: k = {N_CLUSTERS}")
+    ax.plot(k_werte, inertia_werte, marker="o")
+    ax.axvline(ANZAHL_CLUSTER, color="grey", linestyle="--", label=f"gewählt: k = {ANZAHL_CLUSTER}")
     ax.set_title("Elbow-Methode")
     ax.set_xlabel("Anzahl Cluster k")
     ax.set_ylabel("Inertia (Summe quadrierter Abstände)")
     ax.legend()
-    save_figure(fig, "kmeans_elbow.png", dpi=160)
+    grafik_speichern(fig, "kmeans_elbow.png", dpi=160)
 
-    raw_labels = KMeans(n_clusters=N_CLUSTERS, random_state=RANDOM_STATE, n_init=20).fit_predict(X_scaled)
-    # Cluster nach mittlerem Lärm sortieren, damit die Nummerierung stabil und lesbar ist.
-    order = pd.Series(X_scaled[:, 0]).groupby(raw_labels).mean().sort_values().index
-    remap = {old: new for new, old in enumerate(order, start=1)}
-    labels = np.array([remap[label_] for label_ in raw_labels])
+    # 6c) Endgültiges K-Means mit k = 4
+    kmeans = KMeans(n_clusters=ANZAHL_CLUSTER, random_state=ZUFALLSZAHL, n_init=20)
+    roh_nummern = kmeans.fit_predict(z_werte)
 
-    z_profile = pd.DataFrame(X_scaled, columns=CLUSTER_FEATURES).groupby(labels).mean()
-    short = {"laerm_gesamt_lden_db": "Lärm", "benachteiligungsindex": "Benachteiligung",
-             "angebotsmiete_median_eur_m2": "Miete"}
-    names = {c: f"C{c}: " + " · ".join(f"{short[f]} {describe_level(z_profile.loc[c, f])}" for f in CLUSTER_FEATURES)
-             for c in z_profile.index}
+    # 6d) Cluster nach mittlerem Lärm sortieren (C1 = leisester), damit die Nummern immer gleich sind
+    z_tabelle = pd.DataFrame(z_werte, columns=CLUSTER_MERKMALE)
+    z_tabelle["roh_nummer"] = roh_nummern
+    laerm_je_cluster = z_tabelle.groupby("roh_nummer")["laerm_gesamt_lden_db"].mean().sort_values()
 
-    profile = X.groupby(labels)[CLUSTER_FEATURES].mean()
-    profile.insert(0, "anzahl_plr", pd.Series(labels).value_counts().sort_index().values)
-    profile.insert(0, "clustername", [names[c] for c in profile.index])
-    profile.index.name = "cluster"
-    profile.to_csv(OUT / "kmeans_cluster_profiles.csv")
-    print(profile.round(2).to_string())
+    neue_nummer = {}
+    nummer = 1
+    for alte_nummer in laerm_je_cluster.index:
+        neue_nummer[alte_nummer] = nummer
+        nummer = nummer + 1
+    z_tabelle["cluster_nr"] = z_tabelle["roh_nummer"].map(neue_nummer)
 
-    clusters = pd.Series([names[c] for c in labels], index=X.index, name="cluster")
-    df.loc[X.index, ["plr_id", "plr_name"]].assign(cluster=clusters).to_csv(OUT / "kmeans_clusters.csv", index=False)
-    return clusters
+    # 6e) Cluster benennen, z. B. "C3: Lärm hoch · Benachteiligung hoch · Miete niedrig"
+    kurzname = {"laerm_gesamt_lden_db": "Lärm", "benachteiligungsindex": "Benachteiligung",
+                "angebotsmiete_median_eur_m2": "Miete"}
+    z_mittelwerte = z_tabelle.groupby("cluster_nr")[CLUSTER_MERKMALE].mean()
+    clustername = {}
+    for nr in z_mittelwerte.index:
+        teile = []
+        for merkmal in CLUSTER_MERKMALE:
+            teile.append(kurzname[merkmal] + " " + stufe(z_mittelwerte.loc[nr, merkmal]))
+        clustername[nr] = f"C{nr}: " + " · ".join(teile)
+
+    # 6f) Clusterprofile in Originaleinheiten (dB, Index, EUR/m²) speichern
+    cluster_daten["cluster_nr"] = z_tabelle["cluster_nr"].values
+    profil = cluster_daten.groupby("cluster_nr")[CLUSTER_MERKMALE].mean()
+    profil.insert(0, "anzahl_plr", cluster_daten["cluster_nr"].value_counts().sort_index().values)
+    profil.insert(0, "clustername", profil.index.map(clustername))
+    profil.index.name = "cluster"
+    profil.to_csv(AUSGABE / "kmeans_cluster_profiles.csv")
+    print(profil.round(2).to_string())
+
+    # 6g) Zuordnung jedes Gebiets zu seinem Cluster speichern
+    cluster_spalte = cluster_daten["cluster_nr"].map(clustername)
+    zuordnung = daten.loc[cluster_daten.index, ["plr_id", "plr_name"]].copy()
+    zuordnung["cluster"] = cluster_spalte
+    zuordnung.to_csv(AUSGABE / "kmeans_clusters.csv", index=False)
+    return cluster_spalte
 
 
-# ---------------------------------------------------------------------------
-# 8. RÄUMLICHE ABHÄNGIGKEIT: MORAN'S I
-# ---------------------------------------------------------------------------
+# =============================================================================
+# SCHRITT 7: MORAN'S I
+# Ähneln sich benachbarte Planungsräume stärker, als es zufällig zu erwarten wäre?
+# =============================================================================
 
-def run_morans_i(gdf: gpd.GeoDataFrame, models: dict) -> pd.DataFrame:
-    """Moran's I: Ähneln sich benachbarte Planungsräume stärker als zufällig?
+def moran_berechnen(daten, werte):
+    """Berechnet Moran's I für eine Spalte (oder Residuen) mit Queen-Nachbarschaft."""
+    werte = werte.dropna()
+    gebiete = daten.loc[werte.index, ["geometry"]]
 
-    Für die Regressionsresiduen bedeutet ein hohes I, dass die Beobachtungen nicht
-    unabhängig sind; klassische p-Werte wären dann zu optimistisch. Deshalb nutzt
-    run_regressions() zusätzlich geclusterte Standardfehler.
-    """
+    # Queen-Nachbarschaft: Nachbarn sind Gebiete mit gemeinsamer Grenze oder gemeinsamer Ecke
+    nachbarn = Queen.from_dataframe(gebiete, use_index=False)
+    nachbarn.transform = "r"         # zeilenstandardisiert: Durchschnitt der Nachbarn
+
+    np.random.seed(ZUFALLSZAHL)      # damit die 999 Zufallsmischungen jedes Mal gleich sind
+    return Moran(werte.values, nachbarn, permutations=MORAN_PERMUTATIONEN)
+
+
+def morans_i(daten, modelle):
     print("\n[7] Moran's I ...")
-    if not HAS_PYSAL:
-        print("Moran's I übersprungen. Installiert libpysal und esda.")
-        return pd.DataFrame()
-    series = {
-        "laerm_gesamt_lden_db": gdf["laerm_gesamt_lden_db"],
-        "benachteiligungsindex": gdf["benachteiligungsindex"],
-        "residuen_A1": models["ols"]["A1_laerm_einfach"].resid,
-        "residuen_A2": models["ols"]["A2_laerm_kontrollen"].resid,
-    }
-    rows = []
-    for name, values in series.items():
-        values = values.dropna()
-        # Queen-Nachbarschaft: Planungsräume mit gemeinsamer Grenze oder Ecke sind Nachbarn.
-        weights = Queen.from_dataframe(gdf.loc[values.index, ["geometry"]], use_index=False)
-        weights.transform = "r"
-        np.random.seed(RANDOM_STATE)
-        mi = Moran(values.values, weights, permutations=MORAN_PERMUTATIONS)
-        rows.append({"variable": name, "n": len(values), "I": mi.I, "p_sim": mi.p_sim})
-    result = pd.DataFrame(rows)
-    result.to_csv(OUT / "morans_i.csv", index=False)
-    print(result.round(4).to_string(index=False))
-    return result
+    # Für die Residuen (Fehler der Regression) nehmen wir die klassischen Modelle;
+    # die Residuen sind in beiden Varianten identisch.
+    pruefungen = [
+        ("laerm_gesamt_lden_db", daten["laerm_gesamt_lden_db"]),
+        ("benachteiligungsindex", daten["benachteiligungsindex"]),
+        ("residuen_A1", modelle["A1_laerm_einfach_klassisch"].resid),
+        ("residuen_A2", modelle["A2_laerm_kontrollen_klassisch"].resid),
+    ]
+
+    zeilen = []
+    for name, werte in pruefungen:
+        ergebnis = moran_berechnen(daten, werte)
+        zeilen.append({"variable": name, "n": len(werte.dropna()), "I": ergebnis.I, "p_sim": ergebnis.p_sim})
+
+    tabelle = pd.DataFrame(zeilen)
+    tabelle.to_csv(AUSGABE / "morans_i.csv", index=False)
+    print(tabelle.round(4).to_string(index=False))
+    return tabelle
 
 
-# ---------------------------------------------------------------------------
-# 9. KARTEN, ERGEBNISGRAFIK UND HAUPTPROGRAMM
-# ---------------------------------------------------------------------------
+# =============================================================================
+# SCHRITT 8: KARTEN
+# =============================================================================
 
-def draw_districts(ax, gdf: gpd.GeoDataFrame, labels: bool = False) -> None:
-    districts = gdf[["bez", "geometry"]].dissolve(by="bez")
-    districts.boundary.plot(ax=ax, color="black", linewidth=0.7)
-    if labels:
-        for name, point in districts.representative_point().items():
-            ax.annotate(name.split(" - ")[-1], (point.x, point.y), ha="center", fontsize=7,
-                        bbox={"boxstyle": "round,pad=0.15", "fc": "white", "alpha": 0.6, "lw": 0})
+def karte_zeichnen(daten, spalte, farbschema):
+    """Zeichnet eine Berlin-Karte, in der jeder Planungsraum nach seinem Wert eingefärbt ist."""
+    fig, ax = plt.subplots(figsize=(10, 8.5))
+    daten.plot(column=spalte, cmap=farbschema, legend=True, edgecolor="white", linewidth=0.15, ax=ax,
+               legend_kwds={"shrink": 0.6, "label": BESCHRIFTUNG[spalte]},
+               missing_kwds={"color": "lightgrey", "label": "Keine Daten"})
+    bezirksgrenzen_zeichnen(ax, daten)
+    ax.set_title("Berlin nach Planungsräumen: " + BESCHRIFTUNG[spalte])
+    ax.set_axis_off()
+    grafik_speichern(fig, f"map_{spalte}.png", dpi=180)
 
 
-def export_maps(gdf: gpd.GeoDataFrame) -> None:
-    for col, cmap in (("laerm_gesamt_lden_db", "magma_r"), ("benachteiligungsindex", "viridis"),
-                      ("angebotsmiete_median_eur_m2", "viridis")):
-        fig, ax = plt.subplots(figsize=(10, 8.5))
-        gdf.plot(column=col, cmap=cmap, legend=True, edgecolor="white", linewidth=0.15, ax=ax,
-                 legend_kwds={"shrink": 0.6, "label": label(col)},
-                 missing_kwds={"color": "lightgrey", "label": "Keine Daten"})
-        draw_districts(ax, gdf)
-        ax.set_title(f"Berlin nach Planungsräumen: {label(col)}")
-        ax.set_axis_off()
-        save_figure(fig, f"map_{col}.png", dpi=180)
+def cluster_karte_zeichnen(daten):
+    """Zeichnet die Berlin-Karte der K-Means-Gebietstypen."""
+    namen = sorted(daten["cluster"].dropna().unique())
+    farben = sns.color_palette("Set2", len(namen))
+    anzahl = daten["cluster"].value_counts()
 
-    names = sorted(gdf["cluster"].dropna().unique())
-    palette = dict(zip(names, sns.color_palette("Set2", len(names))))
     fig, ax = plt.subplots(figsize=(12, 10))
-    gdf[gdf["cluster"].isna()].plot(ax=ax, color="#e0e0e0", edgecolor="white", linewidth=0.15)
-    for name in names:
-        gdf[gdf["cluster"] == name].plot(ax=ax, color=palette[name], edgecolor="white", linewidth=0.15)
-    draw_districts(ax, gdf, labels=True)
-    counts = gdf["cluster"].value_counts()
-    handles = [plt.Rectangle((0, 0), 1, 1, color=palette[n]) for n in names] + [plt.Rectangle((0, 0), 1, 1, color="#e0e0e0")]
-    legend_labels = [f"{n} (n = {counts[n]})" for n in names]
-    legend_labels.append(f"Nicht geclustert: Miete oder Sozialdaten fehlen (n = {gdf['cluster'].isna().sum()})")
-    ax.legend(handles, legend_labels, loc="lower left", fontsize=8, title="Gebietstypen (K-Means)", title_fontsize=9)
+
+    # Erst die nicht geclusterten Gebiete in Grau ...
+    ohne_cluster = daten[daten["cluster"].isna()]
+    ohne_cluster.plot(ax=ax, color="#e0e0e0", edgecolor="white", linewidth=0.15)
+
+    # ... dann jeden Cluster in seiner Farbe, und dabei die Legende aufbauen
+    legenden_kaestchen = []
+    legenden_texte = []
+    for i in range(len(namen)):
+        name = namen[i]
+        daten[daten["cluster"] == name].plot(ax=ax, color=farben[i], edgecolor="white", linewidth=0.15)
+        legenden_kaestchen.append(plt.Rectangle((0, 0), 1, 1, color=farben[i]))
+        legenden_texte.append(f"{name} (n = {anzahl[name]})")
+    legenden_kaestchen.append(plt.Rectangle((0, 0), 1, 1, color="#e0e0e0"))
+    legenden_texte.append(f"Nicht geclustert: Miete oder Sozialdaten fehlen (n = {len(ohne_cluster)})")
+
+    bezirksgrenzen_zeichnen(ax, daten, mit_namen=True)
+    ax.legend(legenden_kaestchen, legenden_texte, loc="lower left", fontsize=8,
+              title="Gebietstypen (K-Means)", title_fontsize=9)
     ax.set_title("Berlin: Gebietstypen nach Lärm, sozialer Benachteiligung und Angebotsmiete", fontsize=13)
     ax.set_axis_off()
-    save_figure(fig, "map_kmeans_cluster.png", dpi=200)
+    grafik_speichern(fig, "map_kmeans_cluster.png", dpi=200)
 
 
-def build_conclusion(df: gpd.GeoDataFrame, models: dict, anova_p: float, moran: pd.DataFrame) -> list[str]:
-    """Formuliert die Antwort auf die Leitfrage regelbasiert aus den berechneten Kennzahlen."""
-    index, noise = "benachteiligungsindex", "laerm_gesamt_lden_db"
-    a1, a2, b = (models["cluster"][name] for name in ("A1_laerm_einfach", "A2_laerm_kontrollen", "B_miete"))
-    a1_ols, a2_ols = models["ols"]["A1_laerm_einfach"], models["ols"]["A2_laerm_kontrollen"]
-    quintile_means = df.groupby("deprivationsquintil", observed=True)[noise].mean()
-    q1_gap = quintile_means.iloc[1:].mean() - quintile_means.iloc[0]
-    upper_range = quintile_means.iloc[1:].max() - quintile_means.iloc[1:].min()
-    clusters = df["cluster"].dropna()
-    loud_deprived = clusters[clusters.str.contains("Lärm hoch · Benachteiligung hoch", regex=False)]
+# =============================================================================
+# SCHRITT 9: ERGEBNISGRAFIK UND ANTWORT AUF DIE LEITFRAGE
+# =============================================================================
 
-    if a2.pvalues[index] < SIGNIFICANCE_LEVEL and a2.params[index] > 0:
+def ergebnis_text(daten, modelle, anova_p, moran_tabelle):
+    """Formuliert die Antwort auf die Leitfrage aus den berechneten Zahlen (kein fester Text)."""
+    a1 = modelle["A1_laerm_einfach_korrigiert"]
+    a2 = modelle["A2_laerm_kontrollen_korrigiert"]
+    b = modelle["B_miete_korrigiert"]
+    a1_klassisch = modelle["A1_laerm_einfach_klassisch"]
+    a2_klassisch = modelle["A2_laerm_kontrollen_klassisch"]
+    index = "benachteiligungsindex"
+    laerm = "laerm_gesamt_lden_db"
+
+    # Mittlerer Lärm je Quintil
+    laerm_je_quintil = daten.groupby("deprivationsquintil", observed=True)[laerm].mean()
+    abstand_q1 = laerm_je_quintil.iloc[1:].mean() - laerm_je_quintil.iloc[0]          # Q2-Q5 im Mittel minus Q1
+    spannweite_q2_q5 = laerm_je_quintil.iloc[1:].max() - laerm_je_quintil.iloc[1:].min()
+    quintil_werte = []
+    for wert in laerm_je_quintil.values:
+        quintil_werte.append(f"{wert:.1f}")
+    quintil_text = " | ".join(quintil_werte)
+
+    # Anteil der Gebiete, die laut UND benachteiligt sind
+    cluster = daten["cluster"].dropna()
+    laut_und_benachteiligt = cluster[cluster.str.contains("Lärm hoch · Benachteiligung hoch", regex=False)]
+    anteil = len(laut_und_benachteiligt) / len(cluster)
+
+    # H1 entscheiden: signifikant positiver Effekt in Modell A2 (räumlich korrigiert)?
+    if a2.pvalues[index] < SIGNIFIKANZNIVEAU and a2.params[index] > 0:
         h1 = "H1 gestützt: Mehr Benachteiligung geht auch mit Kontrollvariablen mit mehr Lärm einher."
     else:
         h1 = "H1 nicht gestützt: Kein signifikanter linearer Zusammenhang zwischen Benachteiligung und Lärm."
-    lines = [
+
+    zeilen = [
         h1,
-        f"A1: {a1.params[index]:+.2f} dB pro SD Benachteiligung, R² = {a1.rsquared:.3f}, {p_text(a1.pvalues[index])} "
-        f"(räumlich korrigiert; ohne Korrektur {p_text(a1_ols.pvalues[index])}). "
-        f"A2 (mit Dichte und Lage): {a2.params[index]:+.2f} dB, {p_text(a2.pvalues[index])} "
-        f"(ohne Korrektur {p_text(a2_ols.pvalues[index])}).",
-        "Mittlerer Lärm je Quintil: " + " | ".join(f"{v:.1f}" for v in quintile_means.values)
-        + f" dB (Q1→Q5), ANOVA {p_text(anova_p)}. Die am wenigsten benachteiligten Gebiete (Q1) sind "
-        f"{q1_gap:.1f} dB leiser; zwischen Q2 und Q5 liegen nur {upper_range:.1f} dB → kein Gradient "
-        "'je benachteiligter, desto lauter'.",
-        f"H2: Miete steigt um {b.params[noise]:+.2f} EUR/m² pro dB ({p_text(b.pvalues[noise])}) und sinkt um "
-        f"{-b.params[index]:.2f} EUR/m² pro SD Benachteiligung ({p_text(b.pvalues[index])}) – Lageeffekt, keine Kausalität.",
-        f"H3: {clusters.nunique()} Gebietstypen; {len(loud_deprived)} von {len(clusters)} PLR "
-        f"({len(loud_deprived) / len(clusters):.0%}) sind zugleich laut und benachteiligt (Mehrfachbelastung).",
+        f"A1: {a1.params[index]:+.2f} dB pro SD Benachteiligung, R² = {a1.rsquared:.3f}, {p_wert_text(a1.pvalues[index])} "
+        f"(räumlich korrigiert; ohne Korrektur {p_wert_text(a1_klassisch.pvalues[index])}). "
+        f"A2 (mit Dichte und Lage): {a2.params[index]:+.2f} dB, {p_wert_text(a2.pvalues[index])} "
+        f"(ohne Korrektur {p_wert_text(a2_klassisch.pvalues[index])}).",
+        f"Mittlerer Lärm je Quintil: {quintil_text} dB (Q1→Q5), ANOVA {p_wert_text(anova_p)}. "
+        f"Die am wenigsten benachteiligten Gebiete (Q1) sind {abstand_q1:.1f} dB leiser; zwischen Q2 und Q5 "
+        f"liegen nur {spannweite_q2_q5:.1f} dB → kein Gradient 'je benachteiligter, desto lauter'.",
+        f"H2: Miete steigt um {b.params[laerm]:+.2f} EUR/m² pro dB ({p_wert_text(b.pvalues[laerm])}) und sinkt um "
+        f"{-b.params[index]:.2f} EUR/m² pro SD Benachteiligung ({p_wert_text(b.pvalues[index])}) – Lageeffekt, keine Kausalität.",
+        f"H3: {cluster.nunique()} Gebietstypen; {len(laut_und_benachteiligt)} von {len(cluster)} PLR "
+        f"({anteil:.0%}) sind zugleich laut und benachteiligt (Mehrfachbelastung).",
     ]
-    if not moran.empty:
-        mi = moran.set_index("variable")["I"]
-        lines.append(f"Räumlich: Lärm I = {mi['laerm_gesamt_lden_db']:.2f}, Residuen A2 I = {mi['residuen_A2']:.2f} "
-                     "→ benachbarte Gebiete ähneln sich. Deshalb werden die Standardfehler nach "
-                     "Prognoseraum geclustert; alle p-Werte oben sind räumlich korrigiert.")
-    return lines
+
+    moran_laerm = moran_tabelle.loc[moran_tabelle["variable"] == "laerm_gesamt_lden_db", "I"].iloc[0]
+    moran_residuen = moran_tabelle.loc[moran_tabelle["variable"] == "residuen_A2", "I"].iloc[0]
+    zeilen.append(f"Räumlich: Lärm I = {moran_laerm:.2f}, Residuen A2 I = {moran_residuen:.2f} "
+                  "→ benachbarte Gebiete ähneln sich. Deshalb werden die Standardfehler nach "
+                  "Prognoseraum geclustert; alle p-Werte oben sind räumlich korrigiert.")
+    return zeilen
 
 
-def plot_final_result(df: gpd.GeoDataFrame, models: dict, anova_p: float, moran: pd.DataFrame) -> None:
-    conclusion = build_conclusion(df, models, anova_p, moran)
-    (OUT / "ergebnis_zusammenfassung.txt").write_text("\n".join(conclusion) + "\n", encoding="utf-8")
-    print("\nERGEBNIS ZUR LEITFRAGE:\n" + "\n".join(f"- {line}" for line in conclusion))
+def ergebnisgrafik(daten, modelle, anova_p, moran_tabelle):
+    print("\n[9] Ergebnis ...")
+    zeilen = ergebnis_text(daten, modelle, anova_p, moran_tabelle)
+    (AUSGABE / "ergebnis_zusammenfassung.txt").write_text("\n".join(zeilen) + "\n", encoding="utf-8")
+    print("ERGEBNIS ZUR LEITFRAGE:")
+    for zeile in zeilen:
+        print("-", zeile)
 
-    noise, index = "laerm_gesamt_lden_db", "benachteiligungsindex"
-    fig, axes = plt.subplots(2, 2, figsize=(15, 11))
+    laerm = "laerm_gesamt_lden_db"
+    index = "benachteiligungsindex"
+    fig, achsen = plt.subplots(2, 2, figsize=(15, 11))
+    feld_a = achsen[0, 0]
+    feld_b = achsen[0, 1]
+    feld_c = achsen[1, 0]
+    feld_d = achsen[1, 1]
 
-    sub = df[["deprivationsquintil", noise]].dropna()
-    sns.boxplot(data=sub, x="deprivationsquintil", y=noise, color="lightsteelblue", showfliers=False, ax=axes[0, 0])
-    means = sub.groupby("deprivationsquintil", observed=True)[noise].mean()
-    axes[0, 0].plot(range(len(means)), means.values, color="crimson", marker="o", lw=2, label="Mittelwert")
-    axes[0, 0].legend()
-    axes[0, 0].set_title(f"A  Lärm nach sozialer Benachteiligung (ANOVA {p_text(anova_p)})")
-    axes[0, 0].set_xlabel("Quintile des Benachteiligungsindex")
-    axes[0, 0].set_ylabel(label(noise))
+    # Feld A: Boxplot Lärm je Quintil + rote Linie mit den Mittelwerten
+    quintil_daten = daten[["deprivationsquintil", laerm]].dropna()
+    sns.boxplot(data=quintil_daten, x="deprivationsquintil", y=laerm, color="lightsteelblue",
+                showfliers=False, ax=feld_a)
+    mittelwerte = quintil_daten.groupby("deprivationsquintil", observed=True)[laerm].mean()
+    feld_a.plot(range(len(mittelwerte)), mittelwerte.values, color="crimson", marker="o", lw=2, label="Mittelwert")
+    feld_a.legend()
+    feld_a.set_title(f"A  Lärm nach sozialer Benachteiligung (ANOVA {p_wert_text(anova_p)})")
+    feld_a.set_xlabel("Quintile des Benachteiligungsindex")
+    feld_a.set_ylabel(BESCHRIFTUNG[laerm])
+    feld_a.tick_params(axis="x", labelsize=8)
 
-    share = "anteil_fassaden_lden_ueber_65_prozent"
-    sns.barplot(data=df, x="deprivationsquintil", y=share, color="darkorange", errorbar=None, ax=axes[0, 1])
-    axes[0, 1].set_title("B  Mittlerer Anteil Fassaden über 65 dB(A) LDEN")
-    axes[0, 1].set_xlabel("Quintile des Benachteiligungsindex")
-    axes[0, 1].set_ylabel(label(share))
-    for ax in axes[0]:
-        ax.tick_params(axis="x", labelsize=8)
+    # Feld B: Balken mit dem mittleren Anteil stark belasteter Fassaden je Quintil
+    anteil_spalte = "anteil_fassaden_lden_ueber_65_prozent"
+    sns.barplot(data=daten, x="deprivationsquintil", y=anteil_spalte, color="darkorange", errorbar=None, ax=feld_b)
+    feld_b.set_title("B  Mittlerer Anteil Fassaden über 65 dB(A) LDEN")
+    feld_b.set_xlabel("Quintile des Benachteiligungsindex")
+    feld_b.set_ylabel(BESCHRIFTUNG[anteil_spalte])
+    feld_b.tick_params(axis="x", labelsize=8)
 
-    a1, a2 = models["cluster"]["A1_laerm_einfach"], models["cluster"]["A2_laerm_kontrollen"]
-    pair = df[[index, noise]].dropna()
-    axes[1, 0].scatter(pair[index], pair[noise], alpha=0.4, s=12, color="steelblue")
-    x_line = np.linspace(pair[index].min(), pair[index].max(), 50)
-    axes[1, 0].plot(x_line, a1.params["const"] + a1.params[index] * x_line, color="crimson", lw=2,
-                    label=f"A1: b = {a1.params[index]:+.2f} dB, {p_text(a1.pvalues[index])}")
-    axes[1, 0].plot([], [], " ", label=f"A2 (mit Kontrollen): b = {a2.params[index]:+.2f} dB, {p_text(a2.pvalues[index])}")
-    axes[1, 0].legend(fontsize=9, title="p-Werte räumlich korrigiert", title_fontsize=8)
-    axes[1, 0].set_title("C  Regression: Lärm ~ Benachteiligung")
-    axes[1, 0].set_xlabel(label(index))
-    axes[1, 0].set_ylabel(label(noise))
+    # Feld C: Streudiagramm mit Regressionsgerade aus Modell A1
+    a1 = modelle["A1_laerm_einfach_korrigiert"]
+    a2 = modelle["A2_laerm_kontrollen_korrigiert"]
+    punkte = daten[[index, laerm]].dropna()
+    feld_c.scatter(punkte[index], punkte[laerm], alpha=0.4, s=12, color="steelblue")
+    x_linie = np.linspace(punkte[index].min(), punkte[index].max(), 50)
+    y_linie = a1.params["const"] + a1.params[index] * x_linie        # Geradengleichung y = b0 + b1 * x
+    feld_c.plot(x_linie, y_linie, color="crimson", lw=2,
+                label=f"A1: b = {a1.params[index]:+.2f} dB, {p_wert_text(a1.pvalues[index])}")
+    feld_c.plot([], [], " ", label=f"A2 (mit Kontrollen): b = {a2.params[index]:+.2f} dB, {p_wert_text(a2.pvalues[index])}")
+    feld_c.legend(fontsize=9, title="p-Werte räumlich korrigiert", title_fontsize=8)
+    feld_c.set_title("C  Regression: Lärm ~ Benachteiligung")
+    feld_c.set_xlabel(BESCHRIFTUNG[index])
+    feld_c.set_ylabel(BESCHRIFTUNG[laerm])
 
-    axes[1, 1].set_axis_off()
-    axes[1, 1].set_title("D  Antwort auf die Leitfrage", loc="left", fontweight="bold")
-    text = "\n\n".join(textwrap.fill(line, 70) for line in conclusion)
-    axes[1, 1].text(0, 0.98, text, va="top", ha="left", fontsize=9.5, transform=axes[1, 1].transAxes,
-                    bbox={"boxstyle": "round", "fc": "#f7f7f7", "ec": "#bbbbbb"})
+    # Feld D: Antworttext (jede Zeile auf 70 Zeichen umgebrochen)
+    umgebrochen = []
+    for zeile in zeilen:
+        umgebrochen.append(textwrap.fill(zeile, 70))
+    feld_d.set_axis_off()
+    feld_d.set_title("D  Antwort auf die Leitfrage", loc="left", fontweight="bold")
+    feld_d.text(0, 0.98, "\n\n".join(umgebrochen), va="top", ha="left", fontsize=9.5,
+                transform=feld_d.transAxes, bbox={"boxstyle": "round", "fc": "#f7f7f7", "ec": "#bbbbbb"})
 
-    fig.suptitle("Sind sozial benachteiligte Berliner Planungsräume stärker von Lärm betroffen?", fontsize=15, fontweight="bold")
+    fig.suptitle("Sind sozial benachteiligte Berliner Planungsräume stärker von Lärm betroffen?",
+                 fontsize=15, fontweight="bold")
     fig.tight_layout(rect=(0, 0, 1, 0.96))
-    fig.savefig(OUT / "ergebnis_leitfrage.png", dpi=200)
+    fig.savefig(AUSGABE / "ergebnis_leitfrage.png", dpi=200)
     plt.close(fig)
 
 
-def main() -> None:
-    for folder in (RAW, PROCESSED, OUT):
-        folder.mkdir(parents=True, exist_ok=True)
+# =============================================================================
+# HAUPTPROGRAMM
+# =============================================================================
+
+def main():
     print("=" * 72)
     print("BERLIN DATA SCIENCE: LÄRM · SOZIALE LAGE · MIETEN")
     print("=" * 72)
 
-    try:
-        data = load_all_data()
-    except (FileNotFoundError, KeyError, ValueError) as exc:
-        print("\nDATENIMPORT NOCH NICHT ABGESCHLOSSEN:")
-        print(exc)
-        return
+    # Ordner anlegen (falls noch nicht vorhanden)
+    AUFBEREITET.mkdir(parents=True, exist_ok=True)
+    AUSGABE.mkdir(parents=True, exist_ok=True)
 
-    data = run_pca_benachteiligungsindex(data)
-    data["deprivationsquintil"] = pd.qcut(
-        data["benachteiligungsindex"], 5,
-        labels=["Q1\ngeringste", "Q2", "Q3", "Q4", "Q5\nstärkste"],
-    )
-    run_descriptive(data)
-    anova_p = run_anova(data)
-    models = run_regressions(data)
-    data["cluster"] = run_clustering(data)
-    moran = run_morans_i(data, models)
-    export_maps(data)
-    plot_final_result(data, models, anova_p, moran)
-    save_merged(data)
+    # Prüfen, ob alle Eingabedateien da sind
+    benoetigte_dateien = [DATEI_PLANUNGSRAEUME, DATEI_MSS_TABELLE_1, DATEI_MSS_TABELLE_2,
+                          DATEI_MSS_TABELLE_3, DATEI_MIETEN, DATEI_LAERM]
+    for datei in benoetigte_dateien:
+        if not datei.exists():
+            print("Datei fehlt:", datei)
+            print("Bitte Datei ablegen (für die Lärmdaten zuerst aggregate_noise.py ausführen).")
+            return
+
+    # Schritt 1 und 2
+    daten = daten_laden()
+    daten = pca_benachteiligungsindex(daten)
+
+    # Gebiete nach dem Index in 5 gleich große Gruppen (Quintile) einteilen
+    daten["deprivationsquintil"] = pd.qcut(daten["benachteiligungsindex"], 5, labels=QUINTIL_NAMEN)
+
+    # Schritte 3 bis 7
+    deskriptive_statistik(daten)
+    anova_p = anova(daten)
+    modelle = regressionen(daten)
+    daten["cluster"] = kmeans_clustering(daten)
+    moran_tabelle = morans_i(daten, modelle)
+
+    # Schritt 8: Karten
+    print("\n[8] Karten ...")
+    karte_zeichnen(daten, "laerm_gesamt_lden_db", "magma_r")
+    karte_zeichnen(daten, "benachteiligungsindex", "viridis")
+    karte_zeichnen(daten, "angebotsmiete_median_eur_m2", "viridis")
+    cluster_karte_zeichnen(daten)
+
+    # Schritt 9: Ergebnis
+    ergebnisgrafik(daten, modelle, anova_p, moran_tabelle)
+    daten_speichern(daten)
 
     print("\nFertig! Ergebnisse liegen im Ordner 'outputs/'.")
-    print("Wissenschaftlicher Hinweis: Ergebnisse sind Zusammenhänge auf Gebietsebene,")
+    print("Hinweis: Ergebnisse sind Zusammenhänge auf Gebietsebene,")
     print("keine Aussagen über einzelne Personen und kein Kausalitätsnachweis.")
 
 
+# Dieser Block sorgt dafür, dass main() nur startet, wenn man die Datei direkt ausführt
 if __name__ == "__main__":
     main()
