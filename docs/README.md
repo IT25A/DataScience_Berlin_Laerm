@@ -12,6 +12,7 @@ Diese Dokumentation erklärt unser Data-Science-Projekt so, dass man es **ohne V
 | 4 | [04_code.md](04_code.md) | Jede Funktion im Python-Code: was sie tut, was rein- und rausgeht | wer den Code ausführt oder ändert |
 | 5 | [05_outputs.md](05_outputs.md) | Jede Ausgabedatei: was sie zeigt und wie man sie liest | Präsentation „Output und Visualisierung“ |
 | 6 | [06_ergebnis.md](06_ergebnis.md) | Was ist das Ergebnis? Was dürfen wir behaupten, was nicht? Typische Rückfragen | Präsentation „Ergebnis/Auswertung“ |
+| 7 | [07_glossar.md](07_glossar.md) | Fachbegriffe, Methoden und Algorithmen mit Formeln und Beispielen | zum Nachschlagen und für die Präsentation |
 
 ## Die wichtigsten Begriffe in einem Satz
 

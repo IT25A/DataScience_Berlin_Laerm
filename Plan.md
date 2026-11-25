@@ -37,12 +37,12 @@ Ausführliche Dokumentation für Einsteiger: `docs/README.md`.
 - [x] Dateiname `Mietdaten.xlsx` korrekt (vorher `mietdaten.xlsx`, brach unter Linux)
 
 ### Methodik
-- [x] **PCA** über S1–S4 → PC1 = Benachteiligungsindex (80,7 % Varianz, r = 0,998 mit amtlichem MSS-Status-Index)
+- [x] **PCA** über S1–S4 → PC1 = Benachteiligungsindex (81,2 % Varianz, r = 0,998 mit amtlichem MSS-Status-Index)
 - [x] Ordinaler Score 1–4 durch stetigen Index ersetzt
 - [x] EDA nach der PCA, mit allen Variablen; Pearson **und** Spearman; Boxplots je Variable
 - [x] Gruppenvergleich (Kruskal-Wallis, ANOVA) nach MSS-Klasse und Index-Quintil
 - [x] Regressionen mit nach Prognoseraum **geclusterten Standardfehlern** + Kontrollen (log Dichte, Innere Stadt)
-- [x] Robustheit: Median-LDEN, Anteil > 65 dB, nur Straßenlärm, Mietschwellen 10/21/30, Mieten 2022
+- [x] Robustheit: Median-LDEN, Anteil > 65 dB, nur Straßenlärm, Mietschwellen 10/21/30, Mieten 2025 (nur in der ausführlichen Version)
 - [x] VIF korrekt (mit Konstante, auf Modellstichprobe)
 - [x] K-Means: k = 4 begründet, automatische Clusterbenennung, Elbow-/Silhouette-Plot
 - [x] Moran's I mit festem Seed, inkl. Miete und Residuen beider Lärmmodelle
