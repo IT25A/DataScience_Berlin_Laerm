@@ -62,12 +62,14 @@ AUFBEREITET = ORDNER / "data" / "processed"
 AUSGABE = ORDNER / "outputs"
 
 # Eingabedateien
+# Alle Daten beziehen sich auf das Jahr 2022, das Jahr der Lärmkarte:
+#   Lärm 2022, Sozialdaten MSS 2023 (Datenstand 31.12.2022), Mieten 2022.
 DATEI_PLANUNGSRAEUME = ROHDATEN / "planungsraeume.geojson"
-DATEI_MSS_TABELLE_1 = ROHDATEN / "sozialdaten.xlsx"                            # Einwohner
-DATEI_MSS_TABELLE_2 = ROHDATEN / "mss2025_indexindikatoren_anteile_plr.xlsx"   # S1 bis S4
-DATEI_MSS_TABELLE_3 = ROHDATEN / "mss2025_indexindikatoren_zwerte_plr.xlsx"    # amtlicher Status-Index
+DATEI_MSS_TABELLE_1 = ROHDATEN / "mss2023_gesamtindex_plr.xlsx"                # Einwohner
+DATEI_MSS_TABELLE_2 = ROHDATEN / "mss2023_indexindikatoren_anteile_plr.xlsx"   # S1 bis S4
+DATEI_MSS_TABELLE_3 = ROHDATEN / "mss2023_indexindikatoren_zwerte_plr.xlsx"    # amtlicher Status-Index
 DATEI_MIETEN = ROHDATEN / "Mietdaten.xlsx"
-MIETEN_BLATT = "Planungsräume_2025"
+MIETEN_BLATT = "Planungsräume_2022"
 DATEI_LAERM = AUFBEREITET / "laermdaten_aggregiert.csv"                       # erzeugt von aggregate_noise.py
 
 # Parameter der Analyse

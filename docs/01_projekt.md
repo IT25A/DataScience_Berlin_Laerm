@@ -48,7 +48,7 @@ Ein Planungsraum ist ungefähr so groß wie ein Kiez und hat im Durchschnitt run
 ## 1.5 Vorgehen im Überblick
 
 ```text
- 1. Daten beschaffen        Lärmkarte 2022, MSS 2025, IBB-Mieten 2025, Gebietsgrenzen
+ 1. Daten beschaffen        alles aus 2022: Lärmkarte 2022, MSS 2023 (Stand 31.12.2022), IBB-Mieten 2022, Gebietsgrenzen
           │
  2. Daten aufbereiten       Lärm pro Planungsraum zusammenfassen, alles über die PLR-ID verknüpfen
           │
@@ -87,7 +87,7 @@ Jeder Schritt baut auf dem vorherigen auf. Die Verfahren sind in [03_methoden.md
 Es ist wichtig, diese Punkte offen zu benennen – das ist kein Fehler, sondern wissenschaftliche Ehrlichkeit:
 
 1. **Querschnitt:** Wir betrachten einen Zeitpunkt, keine Entwicklung über die Zeit. Ursache und Wirkung können wir damit nicht beweisen.
-2. **Unterschiedliche Jahre:** Lärm 2022, Sozialdaten Ende 2024, Mieten 2025.
+2. **Bezugsjahr 2022:** Alle Daten stammen aus demselben Jahr wie die Lärmkarte (Lärm 2022, Sozialdaten 31.12.2022, Mieten 2022). Das ist der zeitlich sauberste Vergleich, aber nicht der aktuellste Stand; neuere Lärmkarten gibt es erst 2027. Eine Prüfung mit den neueren Daten (Sozialdaten 2024, Mieten 2025) ergibt dieselben Aussagen (siehe [02_daten.md](02_daten.md), Abschnitt 2.6).
 3. **Gebietsebene:** Keine Aussagen über Einzelpersonen (siehe oben).
 4. **Lärmmessung:** Die Lärmwerte stammen von Gebäudefassaden, nicht von Wohnungen; sie sind nicht nach Einwohnern gewichtet.
 5. **Mieten:** Angebotsmieten aus Inseraten sind nicht dasselbe wie die Mieten, die Bewohner tatsächlich zahlen.
@@ -95,8 +95,8 @@ Es ist wichtig, diese Punkte offen zu benennen – das ist kein Fehler, sondern 
 
 ## 1.8 Ergebnis in drei Sätzen (Vorschau)
 
-1. **H1 wird nicht gestützt:** Es gibt keinen signifikanten linearen Zusammenhang zwischen sozialer Benachteiligung und Lärm. Nur die wohlhabendsten Gebiete sind etwas leiser (ca. 2 dB).
+1. **H1 wird nicht gestützt:** Es gibt keinen signifikanten linearen Zusammenhang zwischen sozialer Benachteiligung und Lärm. Nur die wohlhabendsten Gebiete sind etwas leiser (ca. 2,5 dB).
 2. **H2 wird gestützt:** Lautere Gebiete sind teurer, benachteiligte Gebiete billiger – weil zentrale Lagen beides sind: laut und begehrt.
-3. **H3 wird gestützt:** Es gibt vier klar unterscheidbare Gebietstypen; rund ein Viertel der Gebiete ist zugleich laut und benachteiligt – konzentriert in bestimmten innerstädtischen Quartieren wie Wedding und Nord-Neukölln.
+3. **H3 wird gestützt:** Es gibt vier klar unterscheidbare Gebietstypen; rund ein Viertel der Gebiete ist zugleich laut und benachteiligt – konzentriert in bestimmten innerstädtischen Quartieren wie Wedding und Moabit.
 
 Die vollständige Interpretation steht in [06_ergebnis.md](06_ergebnis.md).

@@ -8,15 +8,17 @@ Alle Daten stammen aus **offiziellen, öffentlich zugänglichen Quellen** des La
 |---|---|---|---|---|
 | LOR-Planungsräume (Gebietsgrenzen) | Land Berlin, ODIS / Geoportal | 2021 | `data/raw/planungsraeume.geojson` | Umrisse der 542 Gebiete, Bezirk, Prognoseraum, Innere/Äußere Stadt |
 | Strategische Lärmkarte 2022 | Senatsverwaltung, Umweltatlas | 2022 | wird live geladen → `data/processed/laermdaten_aggregiert.csv` | Lärmpegel an ca. 3,8 Mio. Fassadenpunkten |
-| MSS 2025, Tabelle 1 | Senatsverwaltung für Stadtentwicklung | 31.12.2024 | `data/raw/sozialdaten.xlsx` | Einwohnerzahl |
-| MSS 2025, Tabelle 2.1 | Senatsverwaltung für Stadtentwicklung | 31.12.2024 | `data/raw/mss2025_indexindikatoren_anteile_plr.xlsx` | Die vier sozialen Indikatoren S1–S4 |
-| MSS 2025, Tabelle 3 | Senatsverwaltung für Stadtentwicklung | 31.12.2024 | `data/raw/mss2025_indexindikatoren_zwerte_plr.xlsx` | Amtlicher Status-Index (nur zur Kontrolle unserer PCA) |
-| IBB Wohnungsmarktbericht 2025 | Investitionsbank Berlin | 2025 | `data/raw/Mietdaten.xlsx` | Median-Angebotsmiete und Zahl der Inserate pro PLR |
+| MSS 2023, Tabelle 1 | Senatsverwaltung für Stadtentwicklung | 31.12.2022 | `data/raw/mss2023_gesamtindex_plr.xlsx` | Einwohnerzahl |
+| MSS 2023, Tabelle 2.1 | Senatsverwaltung für Stadtentwicklung | 31.12.2022 | `data/raw/mss2023_indexindikatoren_anteile_plr.xlsx` | Die vier sozialen Indikatoren S1–S4 |
+| MSS 2023, Tabelle 3 | Senatsverwaltung für Stadtentwicklung | 31.12.2022 | `data/raw/mss2023_indexindikatoren_zwerte_plr.xlsx` | Amtlicher Status-Index (nur zur Kontrolle unserer PCA) |
+| IBB Angebotsmieten (Tabellenband 2012–2025) | Investitionsbank Berlin | **2022** (Blatt `Planungsräume_2022`) | `data/raw/Mietdaten.xlsx` | Median-Angebotsmiete und Zahl der Inserate pro PLR |
+
+**Alle Daten beziehen sich auf das Jahr 2022** – das Jahr der Lärmkarte. Warum das wichtig ist und was sich mit neueren Daten ändern würde, steht in Abschnitt 2.6.
 
 **Links:**
 - Gebietsgrenzen: https://daten.odis-berlin.de/
 - Lärmkarte 2022: https://www.berlin.de/umweltatlas/verkehr-laerm/laermbelastung/2022/download/ (WFS-Dienst: https://gdi.berlin.de/services/wfs/ua_stratlaerm_2022)
-- MSS 2025: https://www.berlin.de/sen/stadt/stadtdaten/stadtwissen/monitoring-soziale-stadtentwicklung/bericht-2025/tabellen-der-index-indikatoren-zum-bericht-2025/
+- MSS 2023: https://www.berlin.de/sen/stadt/stadtdaten/stadtwissen/monitoring-soziale-stadtentwicklung/bericht-2023/tabellen-der-index-indikatoren/
 - IBB: https://www.ibb.de/de/ueber-uns/publikationen/wohnungsmarktbericht/2025.html
 
 ---
@@ -116,34 +118,34 @@ Der energetische Mittelwert ist physikalisch korrekt, wird aber stark von den **
 
 ---
 
-## 2.4 Die Sozialdaten (Monitoring Soziale Stadtentwicklung 2025)
+## 2.4 Die Sozialdaten (Monitoring Soziale Stadtentwicklung 2023)
 
 ### Was ist das MSS?
 Die Berliner Senatsverwaltung für Stadtentwicklung erstellt alle zwei Jahre das „Monitoring Soziale Stadtentwicklung“. Es beschreibt für jeden Planungsraum die soziale Lage anhand von vier sogenannten **Status-Indikatoren**:
 
 | Kürzel | Indikator | Genaue Definition (vereinfacht) | Berliner Mittel |
 |---|---|---|---:|
-| **S1** | Arbeitslosigkeit | Anteil der Arbeitslosen nach SGB II („Bürgergeld“) an den Einwohnern von 15 Jahren bis zum Rentenalter | 4,7 % |
-| **S2** | Alleinerziehende | Anteil der Kinder unter 18, die in Alleinerziehenden-Haushalten leben | 24,0 % |
-| **S3** | Transferbezug | Anteil der Einwohner, die Sozialleistungen beziehen (SGB II ohne Arbeitslose, Sozialhilfe, Grundsicherung im Alter) | 9,9 % |
-| **S4** | Kinderarmut | Anteil der Kinder unter 15, die in Haushalten mit SGB-II-Bezug leben | 20,8 % |
+| **S1** | Arbeitslosigkeit | Anteil der Arbeitslosen nach SGB II an den Einwohnern von 15 Jahren bis zum Rentenalter | 4,3 % |
+| **S2** | Alleinerziehende | Anteil der Kinder unter 18, die in Alleinerziehenden-Haushalten leben | 26,4 % |
+| **S3** | Transferbezug | Anteil der Einwohner, die Sozialleistungen beziehen (SGB II ohne Arbeitslose, Sozialhilfe, Grundsicherung im Alter) | 10,5 % |
+| **S4** | Kinderarmut | Anteil der Kinder unter 15, die in Haushalten mit SGB-II-Bezug leben | 22,4 % |
 
-Stand der Daten: 31.12.2024.
+Stand der Daten: **31.12.2022** (MSS-Bericht 2023). Gebietsstand: LOR 01/2023, dieselben 542 Planungsräume wie in unseren Gebietsgrenzen.
 
 ### Welche Tabellen nutzen wir?
-- **Tabelle 1** (`sozialdaten.xlsx`): Einwohnerzahl und die amtliche Statusklasse (hoch / mittel / niedrig / sehr niedrig). Wir nutzen daraus die **Einwohnerzahl**.
-- **Tabelle 2.1** (`mss2025_indexindikatoren_anteile_plr.xlsx`): die vier Indikatoren S1–S4 in Prozent. **Das ist die Grundlage unseres Benachteiligungsindex.**
-- **Tabelle 3** (`mss2025_indexindikatoren_zwerte_plr.xlsx`): der amtliche, stetige Status-Index. Wir nutzen ihn **nur zur Kontrolle**: Stimmt unser selbst berechneter PCA-Index mit dem amtlichen überein? (Ja: Korrelation 0,998.)
+- **Tabelle 1** (`mss2023_gesamtindex_plr.xlsx`): Einwohnerzahl und die amtliche Statusklasse (hoch / mittel / niedrig / sehr niedrig). Wir nutzen daraus die **Einwohnerzahl**.
+- **Tabelle 2.1** (`mss2023_indexindikatoren_anteile_plr.xlsx`): die vier Indikatoren S1–S4 in Prozent. **Das ist die Grundlage unseres Benachteiligungsindex.**
+- **Tabelle 3** (`mss2023_indexindikatoren_zwerte_plr.xlsx`): der amtliche, stetige Status-Index. Wir nutzen ihn **nur zur Kontrolle**: Stimmt unser selbst berechneter PCA-Index mit dem amtlichen überein? (Ja: Korrelation 0,998.)
 
 ### Fehlende Werte
-7 der 542 Planungsräume haben keine Sozialdaten, weil das MSS sie ausschließt – es sind Gebiete mit kaum Einwohnern (z. B. „Pankower Tor“ mit 0, „Landweg“ mit 0, „Gewerbegebiet Bitterfelder Straße“ mit 1.221 Einwohnern). Das ist korrekt und kein Fehler. Es bleiben **535 Planungsräume** mit Sozialdaten.
+6 der 542 Planungsräume haben keine Sozialdaten, weil das MSS sie ausschließt – es sind Gebiete mit kaum Einwohnern (z. B. „Pankower Tor“ mit 0, „Landweg“ mit 0, „Gewerbegebiet Bitterfelder Straße“ mit 1.320 Einwohnern). Das ist korrekt und kein Fehler. Es bleiben **536 Planungsräume** mit Sozialdaten.
 
 ---
 
-## 2.5 Die Mietdaten (IBB Wohnungsmarktbericht 2025)
+## 2.5 Die Mietdaten (IBB, Jahr 2022)
 
 ### Was ist das?
-Die Investitionsbank Berlin wertet jedes Jahr alle Wohnungsinserate aus (Datenbasis: VALUE Marktdatenbank). Für jeden Planungsraum gibt es:
+Die Investitionsbank Berlin wertet jedes Jahr alle Wohnungsinserate aus (Datenbasis: VALUE Marktdatenbank). Die Datei `Mietdaten.xlsx` enthält die Werte für alle Jahre von 2012 bis 2025, jeweils in einem eigenen Tabellenblatt. Wir verwenden das Blatt **`Planungsräume_2022`**, damit die Mieten aus demselben Jahr stammen wie die Lärmkarte. (Hinweis der IBB in diesem Blatt: Die Werte können wegen einer anderen Datengrundlage leicht vom damals veröffentlichten Wohnungsmarktbericht abweichen.) Für jeden Planungsraum gibt es:
 - die **Median-Angebotsmiete** in EUR pro m² Wohnfläche, netto kalt, pro Monat,
 - die **Fallzahl**, also die Zahl der ausgewerteten Inserate.
 
@@ -155,17 +157,50 @@ Die IBB schreibt selbst in die Tabelle, dass Planungsräume mit **weniger als 21
 | | Anzahl PLR |
 |---|---:|
 | alle Planungsräume | 542 |
-| ohne jedes Inserat („keine Daten“) | 20 |
-| mit 1–20 Inseraten (auf fehlend gesetzt) | 88 |
-| **mit gültigem Mietwert** | **434** |
+| ohne jedes Inserat („keine Daten“) | 24 |
+| mit 1–20 Inseraten (auf fehlend gesetzt) | 177 |
+| **mit gültigem Mietwert** | **341** |
 
-**Nebenwirkung:** Gebiete mit vielen Einfamilienhäusern (meist wohlhabend) haben wenige Mietinserate und fallen öfter heraus. Wohlhabende Gebiete sind in der Mietanalyse daher etwas unterrepräsentiert (16 % aller Gebiete, aber nur 11 % der Mietstichprobe).
+Im Jahr 2022 gab es deutlich weniger Inserate als 2025 – deshalb haben nur 341 Planungsräume einen verlässlichen Mietwert (2025 wären es 434).
+
+**Nebenwirkung:** Gebiete mit vielen Einfamilienhäusern (meist wohlhabend) haben wenige Mietinserate und fallen öfter heraus. Wohlhabende Gebiete sind in der Mietanalyse daher unterrepräsentiert (16 % aller Gebiete, aber nur 10 % der Mietstichprobe; von 86 Gebieten mit hohem Status fehlen 52 im Mietmodell).
 
 **Wichtig:** Angebotsmieten sind die Preise für **neu angebotene** Wohnungen. Wer seit 20 Jahren in seiner Wohnung lebt, zahlt meist deutlich weniger. Die Daten beschreiben also den Wohnungsmarkt, nicht die Mietbelastung der Bewohner.
 
 ---
 
-## 2.6 Datenaufbereitung Schritt für Schritt
+## 2.6 Warum alle Daten aus dem Jahr 2022?
+
+### Das Problem
+Wer Lärm, soziale Lage und Mieten vergleicht, sollte Daten **aus demselben Zeitraum** verwenden. Sonst vergleicht man den Lärm von gestern mit den Mieten von heute. Die Lärmkarte gibt das Jahr vor: Sie erscheint nur alle fünf Jahre (2017, **2022**, die nächste 2027). Deshalb richten wir alle anderen Daten auf 2022 aus:
+
+| Datensatz | Verwendet | Neuere Alternative |
+|---|---|---|
+| Lärm | Lärmkarte 2022 | – (nächste 2027) |
+| Soziale Lage | MSS 2023, Stand **31.12.2022** | MSS 2025, Stand 31.12.2024 |
+| Mieten | IBB **2022** | IBB 2025 |
+
+### Würde sich mit neueren Daten etwas ändern?
+Wir haben die ganze Analyse zusätzlich mit den neueren Daten (Sozialdaten 2024, Mieten 2025) gerechnet:
+
+| Kennzahl | **Alles 2022 (Hauptanalyse)** | Neuere Daten (2024/2025) |
+|---|---:|---:|
+| H1: Benachteiligung → Lärm (mit Kontrollen, räumlich korrigiert) | +0,27 dB, p = 0,21 | +0,22 dB, p = 0,29 |
+| Lärm in Q1 … Q5 (dB) | 55,3 · 58,8 · 57,7 · 57,4 · 57,3 | 55,8 · 58,4 · 57,7 · 57,2 · 57,4 |
+| H2: Lärm → Miete | +0,27 EUR/m² pro dB, p < 0,001 | +0,23, p < 0,001 |
+| H2: Benachteiligung → Miete | −1,77 EUR/m² pro SD, p < 0,001 | −2,09, p < 0,001 |
+| H3: Anteil laut und benachteiligt | 26 % | 23 % |
+
+**Alle Schlussfolgerungen sind gleich.** Der Grund: Das *räumliche Muster* ändert sich in wenigen Jahren kaum.
+- Sozialindex Ende 2022 vs. Ende 2024: Korrelation **0,988**; 86 % der Gebiete bleiben im selben Quintil.
+- Mieten 2022 vs. 2025: Rangkorrelation **0,84** – teure Gebiete bleiben teuer.
+- Das **Mietniveau** ist dagegen stark gestiegen (Median 11,24 → 15,45 EUR/m², +37 %). Deshalb sind Euro-Beträge immer nur für ihr Jahr gültig.
+
+**Fazit:** Gleiche Jahre sind die methodisch sauberste Wahl. Die Ergebnisse hängen aber nicht davon ab – auch das ist ein Qualitätsmerkmal (Robustheit).
+
+---
+
+## 2.7 Datenaufbereitung Schritt für Schritt
 
 Die Aufbereitung passiert in `berlin_data_science.py`, Funktion `daten_laden()` (Details in [04_code.md](04_code.md)).
 
@@ -180,8 +215,8 @@ Alle Tabellen werden über die PLR-ID an die Gebietsgrenzen angehängt:
 
 ```text
 Gebietsgrenzen (542)
-   + Sozialdaten (535 mit Werten)
-   + Mietdaten   (522 mit Werten)
+   + Sozialdaten (536 mit Werten)
+   + Mietdaten   (518 mit Werten, davon 341 mit ≥ 21 Inseraten)
    + Lärmdaten   (542 mit Werten)
    = ein Datensatz mit 542 Zeilen
 ```
@@ -189,14 +224,14 @@ Gebietsgrenzen (542)
 Dabei wird mit `validate="one_to_one"` geprüft, dass jede ID in jeder Tabelle nur einmal vorkommt. Gäbe es Duplikate, würde das Skript abbrechen, statt still falsche Daten zu erzeugen.
 
 ### Schritt 4: Namensabgleich
-Zur Kontrolle vergleicht das Skript die Gebietsnamen der IBB-Tabelle mit denen der Gebietsgrenzen. Ergebnis (`outputs/pruefung_namensabweichungen_ibb.csv`): 5 Abweichungen. Drei sind nur Schreibvarianten („Meller Bogen“ / „Mellerbogen“). **Auffällig:** Bei den IDs `12500926` und `12500930` sind „Wittenau Mitte“ und „Wittenau Süd“ vertauscht. Ob dort auch die Mietwerte vertauscht sind, ist ungeklärt – das betrifft 2 von 434 Gebieten und wird als Limitation genannt.
+Zur Kontrolle vergleicht das Skript die Gebietsnamen der IBB-Tabelle mit denen der Gebietsgrenzen. Ergebnis (`outputs/pruefung_namensabweichungen_ibb.csv`): 5 Abweichungen. Drei sind nur Schreibvarianten („Meller Bogen“ / „Mellerbogen“). **Auffällig:** Bei den IDs `12500926` und `12500930` sind „Wittenau Mitte“ und „Wittenau Süd“ vertauscht. Ob dort auch die Mietwerte vertauscht sind, ist ungeklärt – das betrifft höchstens 2 von 341 Gebieten und wird als Limitation genannt.
 
 ### Schritt 5: Neue Variablen berechnen
 
 | Neue Variable | Berechnung | Wozu? |
 |---|---|---|
 | `einwohnerdichte` | Einwohner / Fläche in km² | Kontrollvariable: dichte Gebiete haben mehr Verkehr |
-| `log_einwohnerdichte` | log(1 + Einwohnerdichte) | Die Dichte ist sehr ungleich verteilt (0 bis 35.600 EW/km²). Der Logarithmus staucht große Werte, damit wenige extrem dichte Gebiete die Regression nicht dominieren. Das „+1“ verhindert log(0) bei unbewohnten Gebieten. |
+| `log_einwohnerdichte` | log(1 + Einwohnerdichte) | Die Dichte ist sehr ungleich verteilt (0 bis 36.300 EW/km²). Der Logarithmus staucht große Werte, damit wenige extrem dichte Gebiete die Regression nicht dominieren. Das „+1“ verhindert log(0) bei unbewohnten Gebieten. |
 | `innere_stadt` | 1, wenn `stadtraum_name` = „Innere Stadt“, sonst 0 | Kontrollvariable für die zentrale Lage |
 | `angebotsmiete_median_eur_m2` | Median-Miete, aber nur bei ≥ 21 Inseraten | gefilterter Mietwert |
 | `benachteiligungsindex` | PCA aus S1–S4 (siehe [03_methoden.md](03_methoden.md)) | unsere zentrale Sozialvariable |
@@ -214,7 +249,7 @@ Hinweis zum Öffnen der CSV: Damit die führenden Nullen der IDs erhalten bleibe
 
 ---
 
-## 2.7 Was wir bewusst nicht verwenden
+## 2.8 Was wir bewusst nicht verwenden
 
 | Datei / Daten | Grund |
 |---|---|

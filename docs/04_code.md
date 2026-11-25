@@ -102,8 +102,8 @@ Hauptprogramm           main
 | `ORDNER` | Ordner des Skripts | Ausgangspunkt für alle Pfade |
 | `ROHDATEN`, `AUFBEREITET`, `AUSGABE` | `data/raw`, `data/processed`, `outputs` | Ordner |
 | `DATEI_PLANUNGSRAEUME` | `planungsraeume.geojson` | Gebietsgrenzen |
-| `DATEI_MSS_TABELLE_1/2/3` | `sozialdaten.xlsx`, `mss2025_..._anteile_plr.xlsx`, `mss2025_..._zwerte_plr.xlsx` | Sozialdaten |
-| `DATEI_MIETEN`, `MIETEN_BLATT` | `Mietdaten.xlsx`, `Planungsräume_2025` | Mietdaten |
+| `DATEI_MSS_TABELLE_1/2/3` | `mss2023_gesamtindex_plr.xlsx`, `mss2023_..._anteile_plr.xlsx`, `mss2023_..._zwerte_plr.xlsx` | Sozialdaten, Stand 31.12.2022 |
+| `DATEI_MIETEN`, `MIETEN_BLATT` | `Mietdaten.xlsx`, `Planungsräume_2022` | Mietdaten 2022 (gleiches Jahr wie die Lärmkarte) |
 | `DATEI_LAERM` | `laermdaten_aggregiert.csv` | Ergebnis von `aggregate_noise.py` |
 | `MINDEST_INSERATE` | 21 | Mindestzahl an Mietinseraten |
 | `ANZAHL_CLUSTER` | 4 | k für K-Means |
@@ -165,7 +165,7 @@ Berechnet den Benachteiligungsindex (Methode in [03_methoden.md, 3.2](03_methode
 
 | Unterschritt | Was passiert? |
 |---|---|
-| Auswahl | nur Gebiete mit allen vier Indikatoren (535) |
+| Auswahl | nur Gebiete mit allen vier Indikatoren (536) |
 | **2a** | Standardisieren mit `StandardScaler().fit_transform(...)` |
 | **2b** | PCA mit `PCA().fit_transform(...)`; Eigenwerte und erklärte Varianz → `pca_explained_variance.csv` |
 | **2c** | Ladungen = Eigenvektoren × √Eigenwert |
@@ -216,7 +216,7 @@ Schätzt **ein** Modell zweimal:
 
 | Unterschritt | Was passiert? |
 |---|---|
-| **6a** | Gebiete mit allen drei Merkmalen (434) auswählen und standardisieren |
+| **6a** | Gebiete mit allen drei Merkmalen (341) auswählen und standardisieren |
 | **6b** | Elbow-Methode: Schleife über k = 1 bis 8, jeweils K-Means rechnen und `inertia_` notieren → `kmeans_elbow.png` |
 | **6c** | Endgültiges K-Means mit k = 4 (`n_init=20`, `random_state=42`) |
 | **6d** | Cluster nach mittlerem Lärm sortieren: Mittelwert je Cluster berechnen, sortieren, in einer Schleife neue Nummern 1–4 vergeben (C1 = leisester) |
@@ -224,7 +224,7 @@ Schätzt **ein** Modell zweimal:
 | **6f** | Clusterprofile in Originaleinheiten → `kmeans_cluster_profiles.csv` |
 | **6g** | Zuordnung jedes Gebiets → `kmeans_clusters.csv` |
 
-**Rückgabe:** Spalte mit dem Clusternamen für jedes der 434 Gebiete.
+**Rückgabe:** Spalte mit dem Clusternamen für jedes der 341 Gebiete.
 
 ### Schritt 7: Moran's I
 
