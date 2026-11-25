@@ -63,7 +63,7 @@ Die ausführliche Version mit Robustheitschecks liegt auf `fix/pca-mss-analysis`
 | PCA | S1–S4 standardisiert, PC1 = Benachteiligungsindex (z) | `pca_bericht.txt`, `pca_loadings.csv`, `pca_scree_ladungen.png` |
 | Deskriptiv | Kennzahlen, Histogramme, Korrelationsmatrix | `descriptive_statistics.csv`, `histogramme.png`, `korrelationsmatrix.png` |
 | Hypothesentest | ANOVA: Lärm nach Quintilen des Index | `anova_ergebnis.txt`, `anova_profile.csv` |
-| Regression | Multiple lineare Regression (OLS) | `regression_uebersicht.csv`, `regression_*.txt` |
+| Regression | Multiple lineare Regression (OLS), Standardfehler zusätzlich nach Prognoseraum geclustert | `regression_uebersicht.csv`, `regression_*.txt` |
 | K-Means | Lärm, Benachteiligung, Miete (standardisiert), Elbow | `kmeans_*.csv`, `kmeans_elbow.png`, `map_kmeans_cluster.png` |
 | Moran's I | Queen-Nachbarschaft, 999 Permutationen | `morans_i.csv` |
 | Karten | Lärm, Index, Miete, Cluster | `map_*.png` |
@@ -74,9 +74,10 @@ Die ausführliche Version mit Robustheitschecks liegt auf `fix/pca-mss-analysis`
 - Benachteiligungsindex = PC1 der MSS-Indikatoren S1–S4; höhere Werte = stärkere Benachteiligung.
 - Regression: Modell A1 (Lärm ~ Index), A2 (+ Kontrollen), B (Miete ~ Lärm + Index + Kontrollen).
   Kontrollvariablen: log(1 + Einwohnerdichte) und Lage (Innere/Äußere Stadt laut LOR).
-- Moran's I zeigt, dass benachbarte Planungsräume sich ähneln. Die p-Werte der
-  Regression sind daher eher zu optimistisch; die Hauptaussagen (H1 nicht signifikant,
-  H2 hochsignifikant) bleiben davon unberührt.
+- Moran's I zeigt, dass benachbarte Planungsräume sich ähneln. Klassische p-Werte wären
+  daher zu optimistisch; deshalb werden die Standardfehler nach den 58 Prognoseräumen
+  geclustert. Diese räumlich korrigierten p-Werte sind maßgeblich.
+- Ausführliche Dokumentation für Einsteiger: `../docs/README.md`.
 - Mietgebiete mit weniger als 21 Inseraten werden auf fehlend gesetzt (IBB-Grenze).
 - Mietfilter verzerrt die Stichprobe leicht: Gebiete mit hohem Status (wenige
   Mietinserate) sind im Mietmodell unterrepräsentiert.

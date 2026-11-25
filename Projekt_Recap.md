@@ -191,13 +191,13 @@ Ausgaben: `anova_ergebnis.txt`, `anova_profile.csv`
 
 ## 8. Multiple lineare Regression
 
-Kontrollvariablen: log(1 + Einwohnerdichte), Innere Stadt (0/1). Koeffizient des Index = Effekt pro Standardabweichung Benachteiligung.
+Kontrollvariablen: log(1 + Einwohnerdichte), Innere Stadt (0/1). Koeffizient des Index = Effekt pro Standardabweichung Benachteiligung. Die Standardfehler werden zusätzlich nach den 58 Prognoseräumen geclustert (räumliche Korrektur, siehe §10); diese p-Werte sind maßgeblich.
 
-| Modell | Zielvariable | b Benachteiligung | p | b Lärm | p | R² | n |
-|---|---|---:|---:|---:|---:|---:|---:|
-| A1 | Lärm | +0,22 dB | 0,152 | – | – | 0,004 | 535 |
-| A2 | Lärm (+ Kontrollen) | +0,22 dB | 0,154 | – | – | 0,225 | 535 |
-| B | Miete (+ Kontrollen) | −2,09 EUR/m² | < 0,001 | +0,23 EUR/m² pro dB | < 0,001 | 0,534 | 434 |
+| Modell | Zielvariable | b Benachteiligung | p (OLS) | p (räumlich korrigiert) | b Lärm | p (korrigiert) | R² | n |
+|---|---|---:|---:|---:|---:|---:|---:|---:|
+| A1 | Lärm | +0,22 dB | 0,152 | **0,445** | – | – | 0,004 | 535 |
+| A2 | Lärm (+ Kontrollen) | +0,22 dB | 0,154 | **0,289** | – | – | 0,225 | 535 |
+| B | Miete (+ Kontrollen) | −2,09 EUR/m² | < 0,001 | **< 0,001** | +0,23 EUR/m² pro dB | < 0,001 | 0,534 | 434 |
 
 - **A1/A2:** Kein signifikanter linearer Effekt der Benachteiligung auf Lärm. Die Lage (Innere Stadt: +3,6 dB, p < 0,001) erklärt den Großteil der Lärmunterschiede.
 - **B:** Lärm und Benachteiligung hängen beide hochsignifikant mit der Miete zusammen; die Innere Stadt ist +4,0 EUR/m² teurer. Lageeffekt, nicht kausal.
@@ -234,7 +234,7 @@ Ausgaben: `map_kmeans_cluster.png`, `kmeans_cluster_profiles.csv`, `kmeans_clust
 | Residuen A1 | 0,47 | ≤ 0,001 |
 | Residuen A2 (mit Kontrollen) | 0,30 | ≤ 0,001 |
 
-Lärm und Benachteiligung sind stark räumlich geclustert: Benachbarte Planungsräume ähneln sich. Auch die Residuen der Regression sind räumlich abhängig (die Kontrollvariablen senken I von 0,47 auf 0,30). Die Beobachtungen sind also nicht völlig unabhängig, und die p-Werte der OLS-Regression sind eher zu optimistisch. Das ändert die Aussagen nicht: H1 ist schon ohne Korrektur nicht signifikant, und H2 ist mit p < 0,001 so deutlich, dass eine Korrektur daran nichts ändert (in der ausführlichen Version auf `fix/pca-mss-analysis` geprüft).
+Lärm und Benachteiligung sind stark räumlich geclustert: Benachbarte Planungsräume ähneln sich. Auch die Residuen der Regression sind räumlich abhängig (die Kontrollvariablen senken I von 0,47 auf 0,30). Die Beobachtungen sind also nicht völlig unabhängig, und klassische OLS-p-Werte wären zu optimistisch. **Korrektur:** Die Standardfehler werden nach den 58 Prognoseräumen geclustert. Dadurch steigen sie (A1: 0,16 → 0,29), die p-Werte werden größer (A1: 0,15 → 0,45). Die Aussagen bleiben gleich: H1 nicht signifikant, H2 hochsignifikant.
 
 ---
 
@@ -253,14 +253,14 @@ Lärm und Benachteiligung sind stark räumlich geclustert: Benachbarte Planungsr
 - Offizielle, verifizierte Quellen; Lärmaggregation unabhängig reproduziert
 - Benachteiligungsindex per PCA gebildet und gegen den amtlichen Index validiert
 - Methoden am Vorlesungsstoff orientiert und vollständig erklärbar
-- Räumliche Abhängigkeit mit Moran's I geprüft
+- Räumliche Abhängigkeit mit Moran's I geprüft und in den Standardfehlern korrigiert
 
 **Schwächen**
 - Querschnitt, unterschiedliche Datenjahre
 - Fassadenpunkte nicht bevölkerungsgewichtet
 - Mietfilter unterrepräsentiert Gebiete mit hohem Status
 - Wittenau-Namensvertauschung in der IBB-Tabelle ungeklärt
-- Residuen räumlich abhängig → p-Werte eher zu optimistisch (Aussagen bleiben gültig)
+- Residuen räumlich abhängig (korrigiert über geclusterte Standardfehler; die ANOVA ist nicht räumlich korrigiert)
 - Keine Robustheitschecks mit alternativen Lärmmaßen oder Mietschwellen (nur in der ausführlichen Version)
 
 ---
@@ -305,8 +305,8 @@ Erledigt am 24.11.2026: `data/current/`, `laerm_strassen_lden.geojson`, `laerm_f
 
 **Antwort auf die Leitfrage:**
 
-- **H1 nicht gestützt:** In Berlin gibt es auf Ebene der Planungsräume **keinen signifikanten linearen Zusammenhang** zwischen sozialer Benachteiligung und Lärm (+0,22 dB pro SD, p = 0,15, auch mit Kontrollvariablen).
+- **H1 nicht gestützt:** In Berlin gibt es auf Ebene der Planungsräume **keinen signifikanten linearen Zusammenhang** zwischen sozialer Benachteiligung und Lärm (+0,22 dB pro SD; mit Kontrollvariablen und räumlicher Korrektur p = 0,29).
 - **Nichtlineares Muster (ANOVA p < 0,001):** Die am wenigsten benachteiligten Gebiete sind etwa 2 dB leiser. Darüber hinaus gilt „je ärmer, desto lauter“ nicht, denn die am stärksten benachteiligten Großsiedlungen am Stadtrand sind vergleichsweise leise.
 - **H2 gestützt:** Lauter ist teurer (+0,23 EUR/m² pro dB), benachteiligt ist günstiger (−2,09 EUR/m² pro SD). Das ist ein Lageeffekt und keine Kausalität.
 - **H3 gestützt:** Vier interpretierbare Gebietstypen. **23 % der PLR sind zugleich laut und benachteiligt** (v. a. Wedding, Nord-Neukölln, Schöneberg). Umweltungerechtigkeit ist also kein stadtweiter Trend, sondern ein **räumlich konzentriertes Problem bestimmter innerstädtischer Quartiere**.
-- Lärm und Benachteiligung sind stark räumlich geclustert (Moran's I ≈ 0,4–0,5). Die p-Werte der Regression sind daher eher zu optimistisch; an den Aussagen ändert das nichts.
+- Lärm und Benachteiligung sind stark räumlich geclustert (Moran's I ≈ 0,4–0,5). Das wird über geclusterte Standardfehler berücksichtigt; an den Aussagen ändert die Korrektur nichts.

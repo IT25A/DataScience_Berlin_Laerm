@@ -12,7 +12,7 @@ nicht für Personen. Korrelation ist keine Kausalität.
 Methoden (am Vorlesungsstoff orientiert):
 1. Standardisierung und PCA -> Benachteiligungsindex
 2. Deskriptive Statistik und ANOVA (Hypothesentest)
-3. Multiple lineare Regression
+3. Multiple lineare Regression (mit räumlich geclusterten Standardfehlern)
 4. K-Means-Clustering (Elbow-Methode)
 5. Moran's I als Prüfung der räumlichen Abhängigkeit
 6. Karten und Ergebnisgrafik
@@ -64,7 +64,7 @@ OUT = ROOT / "outputs"
 
 # Geodaten der Berliner LOR-Planungsräume (GeoJSON mit Geometrie)
 BOUNDARIES_FILE = RAW / "planungsraeume.geojson"  # GeoJSON von ODIS Berlin
-BOUNDARY_COLUMNS = ["plr_id", "plr_name", "bez", "stadtraum_name", "geometry"]
+BOUNDARY_COLUMNS = ["plr_id", "plr_name", "pgr_id", "bez", "stadtraum_name", "geometry"]
 
 # MSS 2025. Die Tabellen werden über die achtstellige PLR-ID erkannt, nicht über
 # feste Kopfzeilen. Werte = Spaltenposition in der jeweiligen Excel-Tabelle.
@@ -89,6 +89,10 @@ NOISE_COLUMNS = ["laerm_gesamt_lden_db", "anteil_fassaden_lden_ueber_65_prozent"
 
 # Kontrollvariablen der multiplen Regression
 CONTROL_VARIABLES = ["log_einwohnerdichte", "innere_stadt"]
+
+# Räumliche Korrektur der Standardfehler: Planungsräume desselben Prognoseraums
+# (58 Gruppen) werden als ein "Cluster" behandelt, weil Nachbarn sich ähneln.
+CLUSTER_SE_COLUMN = "pgr_id"
 
 # IBB-Angebotsmieten mit sehr wenigen Inseraten sind instabil (IBB-Grenze: 21).
 MIN_RENT_LISTINGS = 21
@@ -364,7 +368,13 @@ def run_anova(df: gpd.GeoDataFrame) -> float:
 # ---------------------------------------------------------------------------
 
 def run_regressions(df: gpd.GeoDataFrame) -> dict:
-    """A1: Lärm ~ Benachteiligung. A2: zusätzlich Dichte und Lage. B: Miete ~ Lärm + Benachteiligung + Kontrollen."""
+    """A1: Lärm ~ Benachteiligung. A2: zusätzlich Dichte und Lage. B: Miete ~ Lärm + Benachteiligung + Kontrollen.
+
+    Jedes Modell wird zweimal geschätzt: mit klassischen OLS-Standardfehlern und mit
+    nach Prognoseraum geclusterten Standardfehlern. Die Koeffizienten sind identisch,
+    nur die Unsicherheit (Standardfehler, p-Wert) unterscheidet sich. Für die
+    Interpretation sind die geclusterten Werte maßgeblich.
+    """
     print("\n[5] Multiple lineare Regression ...")
     noise, rent, index = "laerm_gesamt_lden_db", "angebotsmiete_median_eur_m2", "benachteiligungsindex"
     specs = {
@@ -372,14 +382,24 @@ def run_regressions(df: gpd.GeoDataFrame) -> dict:
         "A2_laerm_kontrollen": (noise, [index, *CONTROL_VARIABLES]),
         "B_miete": (rent, [noise, index, *CONTROL_VARIABLES]),
     }
-    models, rows = {}, []
+    models, rows = {"ols": {}, "cluster": {}}, []
     for name, (target, predictors) in specs.items():
-        model_data = df[[target, *predictors]].dropna()
-        model = sm.OLS(model_data[target], sm.add_constant(model_data[predictors].astype(float))).fit()
-        models[name] = model
-        (OUT / f"regression_{name}.txt").write_text(model.summary().as_text(), encoding="utf-8")
-        rows += [{"modell": name, "zielvariable": target, "term": term, "koeffizient": model.params[term],
-                  "p_wert": model.pvalues[term], "n": int(model.nobs), "r2": model.rsquared}
+        model_data = df[[target, *predictors, CLUSTER_SE_COLUMN]].dropna()
+        y = model_data[target]
+        X = sm.add_constant(model_data[predictors].astype(float))
+        groups = pd.factorize(model_data[CLUSTER_SE_COLUMN])[0]
+        ols = sm.OLS(y, X).fit()
+        clustered = sm.OLS(y, X).fit(cov_type="cluster", cov_kwds={"groups": groups})
+        models["ols"][name], models["cluster"][name] = ols, clustered
+        (OUT / f"regression_{name}.txt").write_text(
+            "STANDARDFEHLER NACH PROGNOSERAUM GECLUSTERT (maßgeblich)\n"
+            f"{clustered.summary().as_text()}\n\n\n"
+            "KLASSISCHE OLS-STANDARDFEHLER (zum Vergleich)\n"
+            f"{ols.summary().as_text()}\n", encoding="utf-8")
+        rows += [{"modell": name, "zielvariable": target, "term": term, "koeffizient": ols.params[term],
+                  "std_fehler_ols": ols.bse[term], "p_wert_ols": ols.pvalues[term],
+                  "std_fehler_cluster": clustered.bse[term], "p_wert_cluster": clustered.pvalues[term],
+                  "n": int(ols.nobs), "r2": ols.rsquared}
                  for term in predictors]
     overview = pd.DataFrame(rows)
     overview.to_csv(OUT / "regression_uebersicht.csv", index=False)
@@ -443,7 +463,8 @@ def run_morans_i(gdf: gpd.GeoDataFrame, models: dict) -> pd.DataFrame:
     """Moran's I: Ähneln sich benachbarte Planungsräume stärker als zufällig?
 
     Für die Regressionsresiduen bedeutet ein hohes I, dass die Beobachtungen nicht
-    unabhängig sind; die p-Werte der Regression sind dann eher zu optimistisch.
+    unabhängig sind; klassische p-Werte wären dann zu optimistisch. Deshalb nutzt
+    run_regressions() zusätzlich geclusterte Standardfehler.
     """
     print("\n[7] Moran's I ...")
     if not HAS_PYSAL:
@@ -452,8 +473,8 @@ def run_morans_i(gdf: gpd.GeoDataFrame, models: dict) -> pd.DataFrame:
     series = {
         "laerm_gesamt_lden_db": gdf["laerm_gesamt_lden_db"],
         "benachteiligungsindex": gdf["benachteiligungsindex"],
-        "residuen_A1": models["A1_laerm_einfach"].resid,
-        "residuen_A2": models["A2_laerm_kontrollen"].resid,
+        "residuen_A1": models["ols"]["A1_laerm_einfach"].resid,
+        "residuen_A2": models["ols"]["A2_laerm_kontrollen"].resid,
     }
     rows = []
     for name, values in series.items():
@@ -515,7 +536,8 @@ def export_maps(gdf: gpd.GeoDataFrame) -> None:
 def build_conclusion(df: gpd.GeoDataFrame, models: dict, anova_p: float, moran: pd.DataFrame) -> list[str]:
     """Formuliert die Antwort auf die Leitfrage regelbasiert aus den berechneten Kennzahlen."""
     index, noise = "benachteiligungsindex", "laerm_gesamt_lden_db"
-    a1, a2, b = models["A1_laerm_einfach"], models["A2_laerm_kontrollen"], models["B_miete"]
+    a1, a2, b = (models["cluster"][name] for name in ("A1_laerm_einfach", "A2_laerm_kontrollen", "B_miete"))
+    a1_ols, a2_ols = models["ols"]["A1_laerm_einfach"], models["ols"]["A2_laerm_kontrollen"]
     quintile_means = df.groupby("deprivationsquintil", observed=True)[noise].mean()
     q1_gap = quintile_means.iloc[1:].mean() - quintile_means.iloc[0]
     upper_range = quintile_means.iloc[1:].max() - quintile_means.iloc[1:].min()
@@ -528,8 +550,10 @@ def build_conclusion(df: gpd.GeoDataFrame, models: dict, anova_p: float, moran: 
         h1 = "H1 nicht gestützt: Kein signifikanter linearer Zusammenhang zwischen Benachteiligung und Lärm."
     lines = [
         h1,
-        f"A1: {a1.params[index]:+.2f} dB pro SD Benachteiligung, R² = {a1.rsquared:.3f}, {p_text(a1.pvalues[index])}. "
-        f"A2 (mit Dichte und Lage): {a2.params[index]:+.2f} dB, {p_text(a2.pvalues[index])}.",
+        f"A1: {a1.params[index]:+.2f} dB pro SD Benachteiligung, R² = {a1.rsquared:.3f}, {p_text(a1.pvalues[index])} "
+        f"(räumlich korrigiert; ohne Korrektur {p_text(a1_ols.pvalues[index])}). "
+        f"A2 (mit Dichte und Lage): {a2.params[index]:+.2f} dB, {p_text(a2.pvalues[index])} "
+        f"(ohne Korrektur {p_text(a2_ols.pvalues[index])}).",
         "Mittlerer Lärm je Quintil: " + " | ".join(f"{v:.1f}" for v in quintile_means.values)
         + f" dB (Q1→Q5), ANOVA {p_text(anova_p)}. Die am wenigsten benachteiligten Gebiete (Q1) sind "
         f"{q1_gap:.1f} dB leiser; zwischen Q2 und Q5 liegen nur {upper_range:.1f} dB → kein Gradient "
@@ -542,8 +566,8 @@ def build_conclusion(df: gpd.GeoDataFrame, models: dict, anova_p: float, moran: 
     if not moran.empty:
         mi = moran.set_index("variable")["I"]
         lines.append(f"Räumlich: Lärm I = {mi['laerm_gesamt_lden_db']:.2f}, Residuen A2 I = {mi['residuen_A2']:.2f} "
-                     "→ benachbarte Gebiete ähneln sich; p-Werte sind daher eher zu optimistisch. "
-                     "H1 ist trotzdem nicht signifikant, H2 hochsignifikant.")
+                     "→ benachbarte Gebiete ähneln sich. Deshalb werden die Standardfehler nach "
+                     "Prognoseraum geclustert; alle p-Werte oben sind räumlich korrigiert.")
     return lines
 
 
@@ -572,14 +596,14 @@ def plot_final_result(df: gpd.GeoDataFrame, models: dict, anova_p: float, moran:
     for ax in axes[0]:
         ax.tick_params(axis="x", labelsize=8)
 
-    a1, a2 = models["A1_laerm_einfach"], models["A2_laerm_kontrollen"]
+    a1, a2 = models["cluster"]["A1_laerm_einfach"], models["cluster"]["A2_laerm_kontrollen"]
     pair = df[[index, noise]].dropna()
     axes[1, 0].scatter(pair[index], pair[noise], alpha=0.4, s=12, color="steelblue")
     x_line = np.linspace(pair[index].min(), pair[index].max(), 50)
     axes[1, 0].plot(x_line, a1.params["const"] + a1.params[index] * x_line, color="crimson", lw=2,
                     label=f"A1: b = {a1.params[index]:+.2f} dB, {p_text(a1.pvalues[index])}")
     axes[1, 0].plot([], [], " ", label=f"A2 (mit Kontrollen): b = {a2.params[index]:+.2f} dB, {p_text(a2.pvalues[index])}")
-    axes[1, 0].legend(fontsize=9)
+    axes[1, 0].legend(fontsize=9, title="p-Werte räumlich korrigiert", title_fontsize=8)
     axes[1, 0].set_title("C  Regression: Lärm ~ Benachteiligung")
     axes[1, 0].set_xlabel(label(index))
     axes[1, 0].set_ylabel(label(noise))
