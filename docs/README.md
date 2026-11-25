@@ -45,8 +45,10 @@ DataScience_Berlin_Laerm/
     ├── requirements.txt               <- benötigte Python-Pakete
     ├── data/
     │   ├── raw/                       <- Originaldaten (Excel, GeoJSON)
-    │   └── processed/                 <- aufbereitete Daten
-    └── outputs/                       <- alle Ergebnisse (Tabellen, Grafiken, Karten)
+    │   └── processed/                 <- aufbereitete Daten 2022
+    │       └── aktuell/               <- aufbereitete neueste Daten
+    └── outputs/                       <- Ergebnisse 2022 und Vergleichstabelle
+        └── aktuell/                   <- Ergebnisse mit neuesten Daten
 ```
 
 ## Ausführen in drei Schritten
@@ -56,7 +58,16 @@ cd berlin_laerm_sozialstruktur_starter
 python -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 python aggregate_noise.py        # nur nötig, wenn die Lärmdaten neu geladen werden sollen (mehrere Minuten)
-python berlin_data_science.py    # ca. 1 Minute, schreibt alles nach outputs/
+python berlin_data_science.py    # beide Datenstände; Ergebnisse nach outputs/ und outputs/aktuell/
+```
+
+Standardmäßig werden die **abgestimmte Analyse 2022** und der **Vergleich mit den neuesten verfügbaren Sozial- und Mietdaten** gerechnet. Die Lärmkarte ist in beiden Fällen von 2022, da die nächste erst 2027 erscheint. Korrelationstabelle und Plot der beiden Datenstände werden als `outputs/vergleich_zeitraeume.csv` und `outputs/vergleich_zeitraeume.png` gespeichert.
+
+Für nur einen Datenstand:
+
+```bash
+python berlin_data_science.py --datenstand 2022
+python berlin_data_science.py --datenstand aktuell
 ```
 
 Hinweis zu den Branches:

@@ -5,7 +5,7 @@ Das Projekt besteht aus zwei Python-Skripten, die nacheinander laufen:
 | Skript | Aufgabe | Laufzeit | Wie oft nötig? |
 |---|---|---|---|
 | `aggregate_noise.py` | Lädt 3,8 Mio. Lärmpunkte aus dem Internet und fasst sie pro Planungsraum zusammen | mehrere Minuten | einmal (Ergebnis wird gespeichert) |
-| `berlin_data_science.py` | Gesamte Analyse: Daten verknüpfen, PCA, ANOVA, Regression, K-Means, Moran, Karten, Ergebnis | ca. 1 Minute | bei jeder Änderung |
+| `berlin_data_science.py` | Gesamte Analyse: Daten verknüpfen, PCA, ANOVA, Regression, K-Means, Moran, Karten und Ergebnis; standardmäßig für 2022 und neueste verfügbare Daten | ca. 1 Minute je Datenstand | bei jeder Änderung |
 
 `berlin_data_science.py` ist bewusst **einsteigerfreundlich** geschrieben (Branch `beginner-code`):
 - deutsche Variablen- und Funktionsnamen (`daten`, `laerm_werte`, `daten_laden()`),
@@ -13,7 +13,7 @@ Das Projekt besteht aus zwei Python-Skripten, die nacheinander laufen:
 - jeder Schritt eine eigene Funktion mit Kommentaren,
 - alle Einstellungen oben an einer Stelle.
 
-Dadurch ist die Datei etwas länger, aber Zeile für Zeile nachvollziehbar. Die Ergebnisse sind **identisch** mit der kompakteren Version auf dem Branch `simplify-analysis` (alle Tabellen und Texte wurden automatisch verglichen).
+Dadurch ist die Datei etwas länger, aber Zeile für Zeile nachvollziehbar. Die Ergebnisse der 2022-Hauptanalyse wurden mit der kompakteren Version auf dem Branch `simplify-analysis` automatisch verglichen. Die Auswahl der Datenstände und der Jahrgangsvergleich sind in dieser Einsteiger-Version ergänzt.
 
 ---
 
@@ -21,6 +21,7 @@ Dadurch ist die Datei etwas länger, aber Zeile für Zeile nachvollziehbar. Die 
 
 | Bibliothek | Wofür? | Beispiel im Code |
 |---|---|---|
+| **argparse** (Standardbibliothek) | Kommandozeilenoptionen für die Wahl des Datenstands | `--datenstand aktuell` |
 | **pandas** (`pd`) | Tabellen (DataFrames) lesen, filtern, verknüpfen | `pd.read_excel`, `merge`, `groupby` |
 | **numpy** (`np`) | Rechnen mit Zahlenreihen | `np.log1p`, `np.corrcoef` |
 | **geopandas** (`gpd`) | Tabellen mit Geometrie (Polygone); Karten | `gpd.read_file`, `dissolve`, `plot` |
@@ -79,7 +80,7 @@ Lädt ein Paket von 100.000 Lärmpunkten vom Webdienst (ab Punkt `start_index`).
 ### Aufbau der Datei
 
 ```text
-Einstellungen           Dateinamen, Parameter, Spaltenlisten, Beschriftungen
+Einstellungen           Datenstandsprofile, Dateinamen, Parameter, Beschriftungen
 Hilfsfunktionen         p_wert_text, grafik_speichern, excel_zeilen_mit_plr_id, bezirksgrenzen_zeichnen
 Schritt 1               daten_laden, daten_speichern
 Schritt 2               pca_benachteiligungsindex
@@ -90,7 +91,8 @@ Schritt 6               stufe, kmeans_clustering
 Schritt 7               moran_berechnen, morans_i
 Schritt 8               karte_zeichnen, cluster_karte_zeichnen
 Schritt 9               ergebnis_text, ergebnisgrafik
-Hauptprogramm           main
+Hauptprogramm           datenstand_konfigurieren, analyse_ausfuehren,
+                        datenstaende_korrelieren, main
 ```
 
 **Tipp zum Lesen:** Fang ganz unten bei `main()` an. Dort sieht man in 20 Zeilen den gesamten Ablauf. Danach liest man die einzelnen Schritte.
@@ -100,11 +102,11 @@ Hauptprogramm           main
 | Name | Wert | Bedeutung |
 |---|---|---|
 | `ORDNER` | Ordner des Skripts | Ausgangspunkt für alle Pfade |
-| `ROHDATEN`, `AUFBEREITET`, `AUSGABE` | `data/raw`, `data/processed`, `outputs` | Ordner |
+| `ROHDATEN`, `AUFBEREITET`, `AUSGABE` | `data/raw`; Ausgabeordner des aktiven Datenstands | Eingabe- und Ausgabeordner |
 | `DATEI_PLANUNGSRAEUME` | `planungsraeume.geojson` | Gebietsgrenzen |
-| `DATEI_MSS_TABELLE_1/2/3` | `mss2023_gesamtindex_plr.xlsx`, `mss2023_..._anteile_plr.xlsx`, `mss2023_..._zwerte_plr.xlsx` | Sozialdaten, Stand 31.12.2022 |
-| `DATEI_MIETEN`, `MIETEN_BLATT` | `Mietdaten.xlsx`, `Planungsräume_2022` | Mietdaten 2022 (gleiches Jahr wie die Lärmkarte) |
-| `DATEI_LAERM` | `laermdaten_aggregiert.csv` | Ergebnis von `aggregate_noise.py` |
+| `DATENSTAND_KONFIGURATIONEN` | Profile `2022` und `aktuell` | Quelldateien, Excel-Blätter und Unterordner für getrennte Ergebnisse |
+| `DATEI_MSS_TABELLE_1/2/3`, `MIETEN_BLATT` | werden durch `datenstand_konfigurieren()` gesetzt | MSS 2023 / Mieten 2022 oder MSS 2025 / Mieten 2025 |
+| `DATEI_LAERM` | `data/processed/laermdaten_aggregiert.csv` | dieselbe Lärmkarte 2022 in beiden Varianten |
 | `MINDEST_INSERATE` | 21 | Mindestzahl an Mietinseraten |
 | `ANZAHL_CLUSTER` | 4 | k für K-Means |
 | `CLUSTER_SCHWELLE` | 0,25 | ab welcher Abweichung ein Clustermerkmal „hoch“/„niedrig“ heißt |
@@ -119,13 +121,23 @@ Hauptprogramm           main
 
 Wer etwas ändern will (z. B. eine andere Mindestfallzahl), muss nur diesen Abschnitt anpassen.
 
+### Datenstände wählen und vergleichen
+
+`datenstand_konfigurieren(datenstand)` schaltet die Eingabedateien und Ausgabeordner um:
+- **2022:** MSS-Datenstand 31.12.2022 und IBB-Blatt `Planungsräume_2022`.
+- **aktuell:** MSS 2025 mit Sozialdatenstand 31.12.2024 und IBB-Blatt `Planungsräume_2025`. Die aktuellste verfügbare Lärmkarte bleibt 2022.
+
+`main()` führt standardmäßig beide Profile aus. Die alten Ausgabepfade unter `outputs/` und `data/processed/` bleiben für 2022 bestehen; die neuere Variante wird getrennt unter `aktuell/` gespeichert.
+
+`datenstaende_korrelieren()` liest anschließend beide zusammengeführten Tabellen ein, verbindet sie über `plr_id` und berechnet für Sozialindikatoren, Benachteiligungsindex, Mieten und Einwohnerwerte Pearson-r sowie Spearman-rho. Der paarweise Ausschluss fehlender Werte führt je Kennzahl zu einer eigenen Fallzahl. Tabelle und gruppiertes Balkendiagramm werden als `outputs/vergleich_zeitraeume.csv` und `outputs/vergleich_zeitraeume.png` gespeichert.
+
 ### Hilfsfunktionen
 
 #### `p_wert_text(p)`
 Macht aus einem p-Wert einen kurzen Text: `0.2888` → `"p = 0.289"`, sehr kleine Werte → `"p < 0.001"`. Einfaches `if`.
 
 #### `grafik_speichern(fig, dateiname, dpi=170)`
-Speichert eine Grafik als PNG in `outputs/` und schließt sie (spart Arbeitsspeicher). `dpi` ist die Auflösung.
+Speichert eine Grafik als PNG im Ausgabeordner des aktiven Datenstands und schließt sie (spart Arbeitsspeicher). `dpi` ist die Auflösung.
 
 #### `excel_zeilen_mit_plr_id(datei, blatt, id_spalte)`
 **Die wichtigste Einlesefunktion.** Die Excel-Tabellen der Behörden haben Titel, Überschriften und Fußnoten. Die Funktion behält nur die Datenzeilen:
@@ -141,7 +153,7 @@ Zeichnet die 12 Bezirksgrenzen als schwarze Linien in eine Karte. Mit `dissolve(
 
 ### Schritt 1: `daten_laden()`
 
-Lädt alle Daten und verknüpft sie zu **einer** Tabelle mit 542 Zeilen. Die Funktion ist in Unterschritte 1a–1h gegliedert:
+Lädt die Quellen des aktiven Datenstands und verknüpft sie zu **einer** Tabelle mit 542 Zeilen. Die Lärmdaten und Gebietsgrenzen sind in beiden Läufen gleich; Sozial- und Mietdaten wechseln mit dem Profil. Die Funktion ist in Unterschritte 1a–1h gegliedert:
 
 | Unterschritt | Was passiert? |
 |---|---|
@@ -165,7 +177,7 @@ Berechnet den Benachteiligungsindex (Methode in [03_methoden.md, 3.2](03_methode
 
 | Unterschritt | Was passiert? |
 |---|---|
-| Auswahl | nur Gebiete mit allen vier Indikatoren (536) |
+| Auswahl | nur Gebiete mit allen vier Indikatoren (2022: 536; aktuell: 535) |
 | **2a** | Standardisieren mit `StandardScaler().fit_transform(...)` |
 | **2b** | PCA mit `PCA().fit_transform(...)`; Eigenwerte und erklärte Varianz → `pca_explained_variance.csv` |
 | **2c** | Ladungen = Eigenvektoren × √Eigenwert |
@@ -216,7 +228,7 @@ Schätzt **ein** Modell zweimal:
 
 | Unterschritt | Was passiert? |
 |---|---|
-| **6a** | Gebiete mit allen drei Merkmalen (341) auswählen und standardisieren |
+| **6a** | Gebiete mit allen drei Merkmalen auswählen und standardisieren (2022: 341; aktuell: 434) |
 | **6b** | Elbow-Methode: Schleife über k = 1 bis 8, jeweils K-Means rechnen und `inertia_` notieren → `kmeans_elbow.png` |
 | **6c** | Endgültiges K-Means mit k = 4 (`n_init=20`, `random_state=42`) |
 | **6d** | Cluster nach mittlerem Lärm sortieren: Mittelwert je Cluster berechnen, sortieren, in einer Schleife neue Nummern 1–4 vergeben (C1 = leisester) |
@@ -273,22 +285,26 @@ Speichert den Text → `ergebnis_zusammenfassung.txt` und zeichnet die Ergebnisg
 ### Hauptprogramm: `main()`
 
 ```text
-Ordner anlegen
-Prüfen, ob alle Eingabedateien existieren (sonst Hinweis und Ende)
-daten = daten_laden()                         Schritt 1
-daten = pca_benachteiligungsindex(daten)      Schritt 2
-Quintile Q1–Q5 bilden (pd.qcut)
-deskriptive_statistik(daten)                  Schritt 3
-anova_p = anova(daten)                        Schritt 4
-modelle = regressionen(daten)                 Schritt 5
-daten["cluster"] = kmeans_clustering(daten)   Schritt 6
-moran_tabelle = morans_i(daten, modelle)      Schritt 7
-4 Karten zeichnen                             Schritt 8
-ergebnisgrafik(...)                           Schritt 9
-daten_speichern(daten)
+Profile bestimmen (Standard: 2022 und aktuell)
+Eingabedateien für alle gewählten Profile prüfen
+Für jedes Profil:
+    datenstand_konfigurieren(datenstand)
+    daten = daten_laden()                         Schritt 1
+    daten = pca_benachteiligungsindex(daten)      Schritt 2
+    Quintile Q1–Q5 bilden (pd.qcut)
+    deskriptive_statistik(daten)                  Schritt 3
+    anova_p = anova(daten)                        Schritt 4
+    modelle = regressionen(daten)                 Schritt 5
+    daten["cluster"] = kmeans_clustering(daten)   Schritt 6
+    moran_tabelle = morans_i(daten, modelle)      Schritt 7
+    4 Karten zeichnen                             Schritt 8
+    ergebnisgrafik(...)                           Schritt 9
+    daten_speichern(daten)
+Wenn beide Profile liefen:
+    datenstaende_korrelieren()
 ```
 
-`if __name__ == "__main__": main()` sorgt dafür, dass `main()` nur startet, wenn man die Datei direkt ausführt (`python berlin_data_science.py`), nicht wenn man sie in ein anderes Skript importiert.
+Aufruf: `python berlin_data_science.py` rechnet beide Datenstände. Mit `--datenstand 2022` oder `--datenstand aktuell` kann man gezielt nur einen Lauf ausführen. `if __name__ == "__main__"` sorgt dafür, dass `main()` nur beim direkten Ausführen startet, nicht beim Import.
 
 ---
 
@@ -296,7 +312,6 @@ daten_speichern(daten)
 
 | Meldung | Ursache | Lösung |
 |---|---|---|
-| `Datei fehlt: .../data/raw/...` | Rohdatei fehlt oder heißt anders | Datei in `data/raw/` ablegen, Namen prüfen (Groß-/Kleinschreibung!) |
-| `Datei fehlt: .../laermdaten_aggregiert.csv` | `aggregate_noise.py` wurde noch nicht ausgeführt | `python aggregate_noise.py` |
+| `Fehlende Eingabedateien für den Datenstand ...` | eine der für dieses Profil benötigten Rohdateien oder die Lärmaggregation fehlt | Dateinamen prüfen; Lärmdatei bei Bedarf mit `python aggregate_noise.py` erzeugen |
 | `Doppelte Planungsraum-IDs in ...` | Eine Tabelle enthält eine ID zweimal | Excel-Datei prüfen |
 | `ModuleNotFoundError: No module named ...` | Pakete nicht installiert oder falsche Umgebung aktiv | `.venv` aktivieren, `pip install -r requirements.txt` |

@@ -7,13 +7,12 @@ Alle Daten stammen aus **offiziellen, öffentlich zugänglichen Quellen** des La
 | Datensatz | Herausgeber | Stand | Datei im Projekt | Was nutzen wir daraus? |
 |---|---|---|---|---|
 | LOR-Planungsräume (Gebietsgrenzen) | Land Berlin, ODIS / Geoportal | 2021 | `data/raw/planungsraeume.geojson` | Umrisse der 542 Gebiete, Bezirk, Prognoseraum, Innere/Äußere Stadt |
-| Strategische Lärmkarte 2022 | Senatsverwaltung, Umweltatlas | 2022 | wird live geladen → `data/processed/laermdaten_aggregiert.csv` | Lärmpegel an ca. 3,8 Mio. Fassadenpunkten |
-| MSS 2023, Tabelle 1 | Senatsverwaltung für Stadtentwicklung | 31.12.2022 | `data/raw/mss2023_gesamtindex_plr.xlsx` | Einwohnerzahl |
-| MSS 2023, Tabelle 2.1 | Senatsverwaltung für Stadtentwicklung | 31.12.2022 | `data/raw/mss2023_indexindikatoren_anteile_plr.xlsx` | Die vier sozialen Indikatoren S1–S4 |
-| MSS 2023, Tabelle 3 | Senatsverwaltung für Stadtentwicklung | 31.12.2022 | `data/raw/mss2023_indexindikatoren_zwerte_plr.xlsx` | Amtlicher Status-Index (nur zur Kontrolle unserer PCA) |
-| IBB Angebotsmieten (Tabellenband 2012–2025) | Investitionsbank Berlin | **2022** (Blatt `Planungsräume_2022`) | `data/raw/Mietdaten.xlsx` | Median-Angebotsmiete und Zahl der Inserate pro PLR |
+| Strategische Lärmkarte 2022 | Senatsverwaltung, Umweltatlas | 2022 | wird live geladen → `data/processed/laermdaten_aggregiert.csv` | Lärmpegel an ca. 3,8 Mio. Fassadenpunkten; aktuellster verfügbarer Stand |
+| MSS 2023, Tabellen 1, 2.1 und 3 | Senatsverwaltung für Stadtentwicklung | 31.12.2022 | `data/raw/mss2023_*.xlsx` | Einwohnerzahl, soziale Indikatoren S1–S4 und amtlicher Status-Index |
+| MSS 2025, Tabellen 1, 2.1 und 3 | Senatsverwaltung für Stadtentwicklung | 31.12.2024 | `data/raw/sozialdaten.xlsx`, `data/raw/mss2025_*.xlsx` | Neueste verfügbare Einwohnerzahl und soziale Indikatoren S1–S4 |
+| IBB Angebotsmieten (Tabellenband 2012–2025) | Investitionsbank Berlin | **2022** oder **2025** | `data/raw/Mietdaten.xlsx` | Median-Angebotsmiete und Zahl der Inserate pro PLR |
 
-**Alle Daten beziehen sich auf das Jahr 2022** – das Jahr der Lärmkarte. Warum das wichtig ist und was sich mit neueren Daten ändern würde, steht in Abschnitt 2.6.
+Die **Hauptanalyse** verwendet passend zur Lärmkarte Daten aus 2022. Zusätzlich gibt es einen Vergleich mit den neuesten verfügbaren Sozialdaten (Stand 2024) und Mieten (2025). Eine neuere Lärmkarte liegt noch nicht vor. Details stehen in Abschnitt 2.6.
 
 **Links:**
 - Gebietsgrenzen: https://daten.odis-berlin.de/
@@ -169,10 +168,10 @@ Im Jahr 2022 gab es deutlich weniger Inserate als 2025 – deshalb haben nur 341
 
 ---
 
-## 2.6 Warum alle Daten aus dem Jahr 2022?
+## 2.6 Vergleich: Bezugsjahr 2022 und neueste verfügbare Daten
 
 ### Das Problem
-Wer Lärm, soziale Lage und Mieten vergleicht, sollte Daten **aus demselben Zeitraum** verwenden. Sonst vergleicht man den Lärm von gestern mit den Mieten von heute. Die Lärmkarte gibt das Jahr vor: Sie erscheint nur alle fünf Jahre (2017, **2022**, die nächste 2027). Deshalb richten wir alle anderen Daten auf 2022 aus:
+Wer Lärm, soziale Lage und Mieten vergleicht, sollte die Bezugsjahre beachten. Die Lärmkarte erscheint nur alle fünf Jahre (2017, **2022**, die nächste 2027). Darum ist 2022 die zeitlich abgestimmte Hauptanalyse. Für einen Aktualitätsvergleich nehmen wir zusätzlich die neuesten verfügbaren Sozial- und Mietdaten; der Lärm bleibt dabei zwangsläufig von 2022:
 
 | Datensatz | Verwendet | Neuere Alternative |
 |---|---|---|
@@ -180,8 +179,24 @@ Wer Lärm, soziale Lage und Mieten vergleicht, sollte Daten **aus demselben Zeit
 | Soziale Lage | MSS 2023, Stand **31.12.2022** | MSS 2025, Stand 31.12.2024 |
 | Mieten | IBB **2022** | IBB 2025 |
 
-### Würde sich mit neueren Daten etwas ändern?
-Wir haben die ganze Analyse zusätzlich mit den neueren Daten (Sozialdaten 2024, Mieten 2025) gerechnet:
+### So lassen sich beide Datenstände ausführen
+
+Im Projektordner `berlin_laerm_sozialstruktur_starter`:
+
+```bash
+python berlin_data_science.py                 # beide Datenstände (Standard)
+python berlin_data_science.py --datenstand 2022
+python berlin_data_science.py --datenstand aktuell
+```
+
+- **2022:** Lärm 2022, MSS 2023 (Sozialdatenstand 31.12.2022), IBB-Mieten 2022.
+- **Aktuell:** Lärm 2022 (weiterhin die neueste Lärmkarte), MSS 2025 (Sozialdatenstand 31.12.2024), IBB-Mieten 2025.
+- Die Ergebnisse liegen getrennt in `outputs/` (2022) und `outputs/aktuell/`. Die aufbereiteten Tabellen liegen entsprechend in `data/processed/` und `data/processed/aktuell/`.
+- Beim Standardlauf „beide“ entstehen zusätzlich `outputs/vergleich_zeitraeume.csv` und `outputs/vergleich_zeitraeume.png`. Die Grafik zeigt für jeden Indikator Pearson-Korrelation und Spearman-Rangkorrelation zwischen den beiden Jahrgängen, berechnet für dieselben Planungsraum-IDs. Fehlende Werte werden je Indikator paarweise ausgelassen; deshalb kann die Fallzahl variieren.
+- Lärm ist in beiden Varianten derselbe Wert aus 2022 und wird nicht als zeitlicher Vergleich interpretiert.
+
+### Was ändert sich mit neueren Daten?
+Beide Analysen wurden mit den vorhandenen Quelldateien vollständig gerechnet:
 
 | Kennzahl | **Alles 2022 (Hauptanalyse)** | Neuere Daten (2024/2025) |
 |---|---:|---:|
@@ -191,12 +206,12 @@ Wir haben die ganze Analyse zusätzlich mit den neueren Daten (Sozialdaten 2024,
 | H2: Benachteiligung → Miete | −1,77 EUR/m² pro SD, p < 0,001 | −2,09, p < 0,001 |
 | H3: Anteil laut und benachteiligt | 26 % | 23 % |
 
-**Alle Schlussfolgerungen sind gleich.** Der Grund: Das *räumliche Muster* ändert sich in wenigen Jahren kaum.
-- Sozialindex Ende 2022 vs. Ende 2024: Korrelation **0,988**; 86 % der Gebiete bleiben im selben Quintil.
-- Mieten 2022 vs. 2025: Rangkorrelation **0,84** – teure Gebiete bleiben teuer.
+**Die zentralen Schlussfolgerungen sind gleich.** Das *räumliche Muster* ändert sich in wenigen Jahren kaum.
+- Sozialindex Ende 2022 vs. Ende 2024: Pearson-r **0,988**; 86 % der Gebiete bleiben im selben Quintil.
+- Angebotsmieten 2022 vs. 2025: Pearson-r **0,823**, Spearman-rho **0,835** (331 Planungsräume mit gültigen Mietwerten in beiden Jahren).
 - Das **Mietniveau** ist dagegen stark gestiegen (Median 11,24 → 15,45 EUR/m², +37 %). Deshalb sind Euro-Beträge immer nur für ihr Jahr gültig.
 
-**Fazit:** Gleiche Jahre sind die methodisch sauberste Wahl. Die Ergebnisse hängen aber nicht davon ab – auch das ist ein Qualitätsmerkmal (Robustheit).
+**Fazit:** Die Hauptanalyse mit übereinstimmendem Bezugsjahr ist methodisch am saubersten. Der Vergleich mit neueren Sozial- und Mietdaten zeigt, dass die Kernaussagen robust bleiben. Die Korrelationen vergleichen Gebiete, nicht einzelne Personen und nicht Ursachen.
 
 ---
 

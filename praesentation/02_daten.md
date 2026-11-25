@@ -12,10 +12,11 @@
 | Gebietsgrenzen | ODIS / Geoportal Berlin | 542 Planungsräume |
 
 - Alles **offizielle, öffentliche Daten**
-- Alles aus **demselben Jahr** (2022)
+- Hauptanalyse: alle Daten aus **2022**
+- Zusatzvergleich: MSS-Datenstand 2024 und Mieten 2025; neueste Lärmkarte bleibt 2022
 
 **Sprechtext:**
-„Wir nutzen nur offizielle Daten des Landes Berlin und der Investitionsbank Berlin. Ganz wichtig war uns, dass alle Daten aus demselben Jahr stammen. Die Lärmkarte erscheint nur alle fünf Jahre, die aktuellste ist von 2022. Deshalb haben wir auch Sozialdaten und Mieten von 2022 genommen – sonst würden wir den Lärm von gestern mit den Mieten von heute vergleichen.“
+„Wir nutzen nur offizielle Daten des Landes Berlin und der Investitionsbank Berlin. Unsere Hauptanalyse stimmt alle Daten auf 2022 ab, denn die Lärmkarte erscheint nur alle fünf Jahre und die aktuellste ist von 2022. Zusätzlich rechnen wir mit den neuesten verfügbaren Sozialdaten von Ende 2024 und Mieten von 2025. So sehen wir, ob sich die Ergebnisse ändern, obwohl der Lärmwert derselbe bleibt.“
 
 ---
 
@@ -41,9 +42,10 @@ $L = 10 \cdot \log_{10}\left(\frac{1}{n}\sum 10^{L_i/10}\right)$ — Beispiel: 5
 - **4 Sozialindikatoren** (MSS): Arbeitslosigkeit, Kinder bei Alleinerziehenden, Transferbezug, Kinderarmut
 - **Mieten:** Median-Angebotsmiete in EUR/m² (neu inserierte Wohnungen)
 - Mieten nur bei **mind. 21 Inseraten** (IBB-Vorgabe) → 341 Gebiete
+- Im neuesten Mietjahr 2025: **434 Gebiete** mit gültigem Wert
 
 **Sprechtext:**
-„Die soziale Lage messen wir mit vier Indikatoren des Senats, zum Beispiel Arbeitslosigkeit und Kinderarmut. Bei den Mieten nehmen wir den Median der Inserate. Die IBB sagt selbst, dass Werte aus weniger als 21 Inseraten nicht verlässlich sind – die haben wir weggelassen statt sie zu schätzen. Deshalb haben wir Mieten für 341 der 542 Gebiete.“
+„Die soziale Lage messen wir mit vier Indikatoren des Senats, zum Beispiel Arbeitslosigkeit und Kinderarmut. Bei den Mieten nehmen wir den Median der Inserate. Die IBB sagt selbst, dass Werte aus weniger als 21 Inseraten nicht verlässlich sind – die haben wir weggelassen statt sie zu schätzen. So haben 341 Gebiete im Jahr 2022 und 434 im Jahr 2025 einen gültigen Mietwert. Über die gleiche Gebiets-ID können wir die Werte beider Jahre korrelieren.“
 
 ---
 
@@ -51,10 +53,10 @@ $L = 10 \cdot \log_{10}\left(\frac{1}{n}\sum 10^{L_i/10}\right)$ — Beispiel: 5
 
 **Auf der Folie:**
 - Alle Tabellen über die **8-stellige Gebiets-ID** verknüpft
-- Automatische Prüfung auf doppelte IDs
+- Doppelte IDs geprüft; fehlende Werte nicht geschätzt
 - Gefunden: 2 Gebietsnamen in der IBB-Tabelle **vertauscht** (Wittenau)
 - Lärmwerte stichprobenartig **nachgerechnet** → stimmen exakt
-- Keine erfundenen Ersatzwerte
+- Korrelationen: `outputs/vergleich_zeitraeume.png` (Tabelle: `.csv`)
 
 **Sprechtext:**
 „Alle Tabellen werden über eine eindeutige Gebietsnummer zusammengeführt. Das Skript prüft automatisch, dass jede Nummer nur einmal vorkommt. Dabei haben wir sogar einen Fehler in den offiziellen Mietdaten gefunden: Zwei Gebietsnamen sind vertauscht. Fehlende Werte haben wir nie durch geschätzte ersetzt, weil das die Ergebnisse verfälschen würde.“

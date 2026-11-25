@@ -33,6 +33,7 @@ Kleine Lesehilfe
 Quellen: siehe docs/02_daten.md
 """
 
+import argparse
 import textwrap
 from pathlib import Path
 
@@ -58,19 +59,46 @@ from esda.moran import Moran
 # Ordner
 ORDNER = Path(__file__).parent              # der Ordner, in dem dieses Skript liegt
 ROHDATEN = ORDNER / "data" / "raw"
-AUFBEREITET = ORDNER / "data" / "processed"
-AUSGABE = ORDNER / "outputs"
+AUFBEREITET_BASIS = ORDNER / "data" / "processed"
+AUSGABE_BASIS = ORDNER / "outputs"
+AUFBEREITET = AUFBEREITET_BASIS
+AUSGABE = AUSGABE_BASIS
 
 # Eingabedateien
-# Alle Daten beziehen sich auf das Jahr 2022, das Jahr der Lärmkarte:
-#   Lärm 2022, Sozialdaten MSS 2023 (Datenstand 31.12.2022), Mieten 2022.
+# Standardprofil: alle Daten aus dem Bezugsjahr 2022.
 DATEI_PLANUNGSRAEUME = ROHDATEN / "planungsraeume.geojson"
 DATEI_MSS_TABELLE_1 = ROHDATEN / "mss2023_gesamtindex_plr.xlsx"                # Einwohner
 DATEI_MSS_TABELLE_2 = ROHDATEN / "mss2023_indexindikatoren_anteile_plr.xlsx"   # S1 bis S4
 DATEI_MSS_TABELLE_3 = ROHDATEN / "mss2023_indexindikatoren_zwerte_plr.xlsx"    # amtlicher Status-Index
+BLATT_MSS_TABELLE_1 = 0
+BLATT_MSS_TABELLE_2 = 0
+BLATT_MSS_TABELLE_3 = 0
 DATEI_MIETEN = ROHDATEN / "Mietdaten.xlsx"
 MIETEN_BLATT = "Planungsräume_2022"
 DATEI_LAERM = AUFBEREITET / "laermdaten_aggregiert.csv"                       # erzeugt von aggregate_noise.py
+
+DATENSTAND_KONFIGURATIONEN = {
+    "2022": {
+        "mss_tabelle_1": "mss2023_gesamtindex_plr.xlsx",
+        "mss_blatt_1": 0,
+        "mss_tabelle_2": "mss2023_indexindikatoren_anteile_plr.xlsx",
+        "mss_blatt_2": 0,
+        "mss_tabelle_3": "mss2023_indexindikatoren_zwerte_plr.xlsx",
+        "mss_blatt_3": 0,
+        "mieten_blatt": "Planungsräume_2022",
+        "ordner": None,
+    },
+    "aktuell": {
+        "mss_tabelle_1": "sozialdaten.xlsx",
+        "mss_blatt_1": "1.SDI_PLR_MSS2025",
+        "mss_tabelle_2": "mss2025_indexindikatoren_anteile_plr.xlsx",
+        "mss_blatt_2": "2.1.IndexInd_Ant_PLR_MSS2025",
+        "mss_tabelle_3": "mss2025_indexindikatoren_zwerte_plr.xlsx",
+        "mss_blatt_3": "3.IndexInd_z_Werte_PLR_MSS2025",
+        "mieten_blatt": "Planungsräume_2025",
+        "ordner": "aktuell",
+    },
+}
 
 # Parameter der Analyse
 MINDEST_INSERATE = 21          # weniger Mietinserate gelten laut IBB als nicht repräsentativ
@@ -103,6 +131,34 @@ BESCHRIFTUNG = {
     "angebotsmiete_median_eur_m2": "Median-Angebotsmiete [EUR/m²]",
     "einwohnerdichte": "Einwohnerdichte [EW/km²]",
 }
+
+
+def datenstand_konfigurieren(datenstand):
+    """Wählt die Quelldateien und getrennten Ausgabeordner eines Datenstands."""
+    global DATEI_MSS_TABELLE_1, DATEI_MSS_TABELLE_2, DATEI_MSS_TABELLE_3
+    global BLATT_MSS_TABELLE_1, BLATT_MSS_TABELLE_2, BLATT_MSS_TABELLE_3
+    global MIETEN_BLATT, AUFBEREITET, AUSGABE, DATEI_LAERM
+
+    if datenstand not in DATENSTAND_KONFIGURATIONEN:
+        raise ValueError(f"Unbekannter Datenstand: {datenstand}")
+
+    konfiguration = DATENSTAND_KONFIGURATIONEN[datenstand]
+    DATEI_MSS_TABELLE_1 = ROHDATEN / konfiguration["mss_tabelle_1"]
+    DATEI_MSS_TABELLE_2 = ROHDATEN / konfiguration["mss_tabelle_2"]
+    DATEI_MSS_TABELLE_3 = ROHDATEN / konfiguration["mss_tabelle_3"]
+    BLATT_MSS_TABELLE_1 = konfiguration["mss_blatt_1"]
+    BLATT_MSS_TABELLE_2 = konfiguration["mss_blatt_2"]
+    BLATT_MSS_TABELLE_3 = konfiguration["mss_blatt_3"]
+    MIETEN_BLATT = konfiguration["mieten_blatt"]
+
+    ordner = konfiguration["ordner"]
+    if ordner is None:
+        AUFBEREITET = AUFBEREITET_BASIS
+        AUSGABE = AUSGABE_BASIS
+    else:
+        AUFBEREITET = AUFBEREITET_BASIS / ordner
+        AUSGABE = AUSGABE_BASIS / ordner
+    DATEI_LAERM = AUFBEREITET_BASIS / "laermdaten_aggregiert.csv"
 
 
 # =============================================================================
@@ -177,13 +233,13 @@ def daten_laden():
 
     # --- 1b) Sozialdaten aus den drei MSS-Tabellen ----------------------------
     # Tabelle 1: Spalte 0 = ID, Spalte 2 = Einwohner
-    tabelle1 = excel_zeilen_mit_plr_id(DATEI_MSS_TABELLE_1, 0, 0)
+    tabelle1 = excel_zeilen_mit_plr_id(DATEI_MSS_TABELLE_1, BLATT_MSS_TABELLE_1, 0)
     einwohner = pd.DataFrame()
     einwohner["plr_id"] = tabelle1[0]
     einwohner["einwohner"] = pd.to_numeric(tabelle1[2], errors="coerce")
 
     # Tabelle 2.1: Spalten 3 bis 6 = Indikatoren S1 bis S4 (in Prozent)
-    tabelle2 = excel_zeilen_mit_plr_id(DATEI_MSS_TABELLE_2, 0, 0)
+    tabelle2 = excel_zeilen_mit_plr_id(DATEI_MSS_TABELLE_2, BLATT_MSS_TABELLE_2, 0)
     indikatoren = pd.DataFrame()
     indikatoren["plr_id"] = tabelle2[0]
     indikatoren["arbeitslosenanteil_prozent"] = pd.to_numeric(tabelle2[3], errors="coerce")
@@ -192,7 +248,7 @@ def daten_laden():
     indikatoren["kinderarmut_prozent"] = pd.to_numeric(tabelle2[6], errors="coerce")
 
     # Tabelle 3: Spalte 8 = amtlicher Status-Index (nur zur Kontrolle der PCA)
-    tabelle3 = excel_zeilen_mit_plr_id(DATEI_MSS_TABELLE_3, 0, 0)
+    tabelle3 = excel_zeilen_mit_plr_id(DATEI_MSS_TABELLE_3, BLATT_MSS_TABELLE_3, 0)
     amtlicher_index = pd.DataFrame()
     amtlicher_index["plr_id"] = tabelle3[0]
     amtlicher_index["mss_statusindex"] = pd.to_numeric(tabelle3[8], errors="coerce")
@@ -272,7 +328,7 @@ def daten_speichern(daten):
 def pca_benachteiligungsindex(daten):
     print("\n[2] PCA: Benachteiligungsindex aus S1-S4 ...")
 
-    # Nur Gebiete, bei denen alle vier Indikatoren vorhanden sind (535 Stück)
+    # Nur Gebiete mit allen vier Indikatoren (2022: 536, aktuell: 535)
     indikator_daten = daten[INDIKATOREN].dropna()
 
     # 2a) Standardisieren: jede Spalte bekommt Mittelwert 0 und Standardabweichung 1
@@ -497,7 +553,7 @@ def stufe(z_wert):
 def kmeans_clustering(daten):
     print("\n[6] K-Means-Clustering ...")
 
-    # 6a) Nur Gebiete mit allen drei Merkmalen (434 Stück), dann standardisieren
+    # 6a) Nur Gebiete mit allen drei Merkmalen (2022: 341, aktuell: 434)
     cluster_daten = daten[CLUSTER_MERKMALE].dropna().copy()
     z_werte = StandardScaler().fit_transform(cluster_daten)
 
@@ -778,54 +834,198 @@ def ergebnisgrafik(daten, modelle, anova_p, moran_tabelle):
 # HAUPTPROGRAMM
 # =============================================================================
 
-def main():
-    print("=" * 72)
-    print("BERLIN DATA SCIENCE: LÄRM · SOZIALE LAGE · MIETEN")
-    print("=" * 72)
+def analyse_ausfuehren(datenstand):
+    datenstand_konfigurieren(datenstand)
+    print(f"\nDatenstand: {datenstand}")
 
-    # Ordner anlegen (falls noch nicht vorhanden)
     AUFBEREITET.mkdir(parents=True, exist_ok=True)
     AUSGABE.mkdir(parents=True, exist_ok=True)
 
-    # Prüfen, ob alle Eingabedateien da sind
-    benoetigte_dateien = [DATEI_PLANUNGSRAEUME, DATEI_MSS_TABELLE_1, DATEI_MSS_TABELLE_2,
-                          DATEI_MSS_TABELLE_3, DATEI_MIETEN, DATEI_LAERM]
-    for datei in benoetigte_dateien:
-        if not datei.exists():
-            print("Datei fehlt:", datei)
-            print("Bitte Datei ablegen (für die Lärmdaten zuerst aggregate_noise.py ausführen).")
-            return
-
-    # Schritt 1 und 2
     daten = daten_laden()
     daten = pca_benachteiligungsindex(daten)
 
     # Gebiete nach dem Index in 5 gleich große Gruppen (Quintile) einteilen
     daten["deprivationsquintil"] = pd.qcut(daten["benachteiligungsindex"], 5, labels=QUINTIL_NAMEN)
 
-    # Schritte 3 bis 7
     deskriptive_statistik(daten)
     anova_p = anova(daten)
     modelle = regressionen(daten)
     daten["cluster"] = kmeans_clustering(daten)
     moran_tabelle = morans_i(daten, modelle)
 
-    # Schritt 8: Karten
     print("\n[8] Karten ...")
     karte_zeichnen(daten, "laerm_gesamt_lden_db", "magma_r")
     karte_zeichnen(daten, "benachteiligungsindex", "viridis")
     karte_zeichnen(daten, "angebotsmiete_median_eur_m2", "viridis")
     cluster_karte_zeichnen(daten)
 
-    # Schritt 9: Ergebnis
     ergebnisgrafik(daten, modelle, anova_p, moran_tabelle)
     daten_speichern(daten)
 
-    print("\nFertig! Ergebnisse liegen im Ordner 'outputs/'.")
-    print("Hinweis: Ergebnisse sind Zusammenhänge auf Gebietsebene,")
+    print(f"\nFertig! Ergebnisse für {datenstand} liegen in '{AUSGABE}'.")
+    print("Hinweis: Beide Datenstände verwenden die Lärmkarte 2022.")
+    print("Die Ergebnisse sind Zusammenhänge auf Gebietsebene,")
     print("keine Aussagen über einzelne Personen und kein Kausalitätsnachweis.")
+
+
+def datenstaende_korrelieren():
+    """Vergleicht gleichnamige Variablen aus beiden Läufen auf gemeinsamen Planungsräumen."""
+    datei_2022 = AUFBEREITET_BASIS / "berlin_merged.csv"
+    datei_aktuell = AUFBEREITET_BASIS / "aktuell" / "berlin_merged.csv"
+    daten_2022 = pd.read_csv(datei_2022, dtype={"plr_id": str})
+    daten_aktuell = pd.read_csv(datei_aktuell, dtype={"plr_id": str})
+
+    vergleich = daten_2022.merge(
+        daten_aktuell,
+        on="plr_id",
+        how="inner",
+        suffixes=("_2022", "_aktuell"),
+        validate="one_to_one",
+    )
+    variablen = [
+        ("benachteiligungsindex", "Benachteiligungsindex (PCA)"),
+        ("arbeitslosenanteil_prozent", "Arbeitslosenanteil S1 (%)"),
+        ("alleinerziehende_prozent", "Alleinerziehendenanteil S2 (%)"),
+        ("transferbezugsanteil_prozent", "Transferbezugsanteil S3 (%)"),
+        ("kinderarmut_prozent", "Kinderarmut S4 (%)"),
+        ("angebotsmiete_median_eur_m2", "Angebotsmiete (EUR/m²)"),
+        ("einwohner", "Einwohnerzahl"),
+        ("einwohnerdichte", "Einwohnerdichte (EW/km²)"),
+    ]
+
+    zeilen = []
+    for spalte, bezeichnung in variablen:
+        werte = vergleich[[f"{spalte}_2022", f"{spalte}_aktuell"]].apply(
+            pd.to_numeric, errors="coerce"
+        ).dropna()
+        if len(werte) < 2:
+            raise ValueError(f"Zu wenige gemeinsame Werte für die Korrelation von {bezeichnung}.")
+
+        zeilen.append({
+            "variable": bezeichnung,
+            "n_planungsraeume": len(werte),
+            "pearson_r": stats.pearsonr(werte.iloc[:, 0], werte.iloc[:, 1])[0],
+            "spearman_rho": stats.spearmanr(werte.iloc[:, 0], werte.iloc[:, 1])[0],
+        })
+
+    tabelle = pd.DataFrame(zeilen)
+    AUSGABE_BASIS.mkdir(parents=True, exist_ok=True)
+    datei_ergebnis = AUSGABE_BASIS / "vergleich_zeitraeume.csv"
+    tabelle.to_csv(datei_ergebnis, index=False)
+    datenstaende_plotten(tabelle)
+    print("\nKorrelation der Datenstände (gleiche Planungsraum-IDs):")
+    print(tabelle.round(3).to_string(index=False))
+    print(f"Vergleich gespeichert: {datei_ergebnis}")
+
+
+def datenstaende_plotten(tabelle):
+    """Zeichnet Pearson- und Spearman-Korrelationen der beiden Datenstände."""
+    zeilen = np.arange(len(tabelle))
+    balkenhoehe = 0.36
+    beschriftungen = []
+    for i in range(len(tabelle)):
+        variable = tabelle.loc[i, "variable"]
+        anzahl = tabelle.loc[i, "n_planungsraeume"]
+        beschriftungen.append(f"{variable} (n={anzahl})")
+
+    fig, ax = plt.subplots(figsize=(12, 7))
+    pearson_balken = ax.barh(
+        zeilen - balkenhoehe / 2,
+        tabelle["pearson_r"],
+        balkenhoehe,
+        label="Pearson r",
+        color="steelblue",
+    )
+    spearman_balken = ax.barh(
+        zeilen + balkenhoehe / 2,
+        tabelle["spearman_rho"],
+        balkenhoehe,
+        label="Spearman ρ",
+        color="darkorange",
+    )
+
+    for balkenreihe in [pearson_balken, spearman_balken]:
+        for balken in balkenreihe:
+            wert = balken.get_width()
+            if wert >= 0:
+                position = wert + 0.015
+                ausrichtung = "left"
+            else:
+                position = wert - 0.015
+                ausrichtung = "right"
+            ax.text(
+                position,
+                balken.get_y() + balken.get_height() / 2,
+                f"{wert:.3f}",
+                va="center",
+                ha=ausrichtung,
+                fontsize=8,
+            )
+
+    ax.set_yticks(zeilen, beschriftungen)
+    ax.invert_yaxis()
+    ax.set_xlim(-1.12, 1.12)
+    ax.axvline(0, color="black", linewidth=0.8)
+    ax.set_xlabel("Korrelation zwischen den Werten je Planungsraum (2022 vs. neuester Stand)")
+    ax.set_title(
+        "Ähnlichkeit der Datenstände\n"
+        "Sozialdaten: 2022 vs. 2024 · Angebotsmieten: 2022 vs. 2025"
+    )
+    ax.legend(loc="upper left")
+    ax.grid(axis="x", linestyle=":", alpha=0.5)
+    fig.tight_layout()
+    fig.savefig(AUSGABE_BASIS / "vergleich_zeitraeume.png", dpi=180)
+    plt.close(fig)
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="Analysiert Berliner Lärm, soziale Lage und Angebotsmieten."
+    )
+    parser.add_argument(
+        "--datenstand",
+        choices=["2022", "aktuell", "beide"],
+        default="beide",
+        help="2022, neueste verfügbare Daten oder beide (Standard: beide)",
+    )
+    argumente = parser.parse_args()
+
+    if argumente.datenstand == "beide":
+        datenstaende = ["2022", "aktuell"]
+    else:
+        datenstaende = [argumente.datenstand]
+
+    for datenstand in datenstaende:
+        datenstand_konfigurieren(datenstand)
+        benoetigte_dateien = [
+            DATEI_PLANUNGSRAEUME,
+            DATEI_MSS_TABELLE_1,
+            DATEI_MSS_TABELLE_2,
+            DATEI_MSS_TABELLE_3,
+            DATEI_MIETEN,
+            DATEI_LAERM,
+        ]
+        fehlende_dateien = [datei for datei in benoetigte_dateien if not datei.exists()]
+        if fehlende_dateien:
+            print(f"Fehlende Eingabedateien für den Datenstand '{datenstand}':")
+            for datei in fehlende_dateien:
+                print("-", datei)
+            print("Für Lärmdaten zuerst aggregate_noise.py ausführen.")
+            return 1
+
+    print("=" * 72)
+    print("BERLIN DATA SCIENCE: LÄRM · SOZIALE LAGE · MIETEN")
+    print("=" * 72)
+
+    for datenstand in datenstaende:
+        analyse_ausfuehren(datenstand)
+
+    if argumente.datenstand == "beide":
+        datenstaende_korrelieren()
+
+    return 0
 
 
 # Dieser Block sorgt dafür, dass main() nur startet, wenn man die Datei direkt ausführt
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

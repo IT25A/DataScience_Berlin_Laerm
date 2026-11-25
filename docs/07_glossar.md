@@ -303,6 +303,24 @@ $$
 **Im Projekt:** Miete–Lärm r = 0,42; Benachteiligung–Miete r = −0,51; Benachteiligung–Lärm r = 0,08.
 **Wichtig:** r misst nur **lineare** Zusammenhänge und sagt nichts über Ursache und Wirkung.
 
+### Rangkorrelation nach Spearman (ρ)
+Spearman misst, ob zwei Variablen in ähnlicher **Rangfolge** steigen oder fallen. Zuerst werden die Werte in Rangplätze umgewandelt; danach berechnet man darauf die Pearson-Korrelation:
+
+$$
+\rho = \operatorname{corr}(\operatorname{Rang}(x), \operatorname{Rang}(y))
+$$
+
+Ohne gleiche Rangplätze lässt sie sich auch so schreiben:
+
+$$
+\rho = 1 - \frac{6\sum_{i=1}^{n} d_i^2}{n(n^2-1)}
+$$
+
+$d_i$ ist die Differenz der beiden Rangplätze für Beobachtung $i$. Bei gleichen Werten (Bindungen) werden mittlere Ränge vergeben; die Software berechnet die Korrelation der Rangplätze direkt.
+
+**Unterschied zu Pearson:** Pearson misst einen linearen Zusammenhang der Zahlenwerte; Spearman erfasst, ob die Reihenfolge ähnlich bleibt, auch wenn der Zusammenhang nicht exakt geradlinig ist. Beide Werte liegen zwischen −1 und +1.
+**Im Projekt:** Für den Vergleich der Mietdaten 2022 und 2025 beträgt Pearson-r 0,823 und Spearman-ρ 0,835. Die Rangfolge der Mieten in den Gebieten blieb damit ähnlich. Berechnet wird nur für Planungsräume mit gültigen Mietwerten in beiden Jahren.
+
 ### Korrelation vs. Kausalität
 **Korrelation:** Zwei Dinge treten gemeinsam auf. **Kausalität:** Das eine verursacht das andere. Aus Querschnittsdaten folgt nur Korrelation. Beispiel: Laute Gebiete sind teurer – nicht, weil Lärm die Miete erhöht, sondern weil zentrale Lage beides bewirkt (**Störvariable**, „Confounder“).
 
@@ -670,6 +688,7 @@ Jeder Punkt ist eine Beobachtung, x- und y-Achse sind zwei Variablen. Mit Regres
 | Räumlicher Join | B |
 | Regression | G |
 | Residuum | G |
+| Rangkorrelation (Spearman) | E |
 | Scree-Plot | D |
 | Selektionseffekt | C |
 | Signifikanzniveau | F |

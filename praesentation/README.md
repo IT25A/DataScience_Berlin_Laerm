@@ -7,12 +7,12 @@
 
 | # | Teil | Person | Zeit | Datei |
 |---|---|---|---:|---|
-| 1 | Problemfrage und Motivation | Gabi | 2 min | [01_problemfrage_motivation.md](01_problemfrage_motivation.md) |
-| 2 | Daten sammeln und anpassen | Amir | 2,5 min | [02_daten.md](02_daten.md) |
-| 3 | Algorithmen und Statistik | Anes | 3,5 min | [03_algorithmen_statistik.md](03_algorithmen_statistik.md) |
-| 4 | Output und Visualisierung | Gabi | 2,5 min | [04_output_visualisierung.md](04_output_visualisierung.md) |
-| 5 | Ergebnis und Auswertung (Demo bei Bedarf) | Thanh | 2,5 min | [05_ergebnis_auswertung.md](05_ergebnis_auswertung.md) |
-| | **Gesamt** | | **13 min** | |
+| 1 | Problemfrage und Motivation | Gabi | 1 min | [01_problemfrage_motivation.md](01_problemfrage_motivation.md) |
+| 2 | Daten sammeln und anpassen | Amir | 2 min | [02_daten.md](02_daten.md) |
+| 3 | Algorithmen und Statistik | Anes | 3 min | [03_algorithmen_statistik.md](03_algorithmen_statistik.md) |
+| 4 | Output und Visualisierung | Gabi | 2 min | [04_output_visualisierung.md](04_output_visualisierung.md) |
+| 5 | Ergebnis und Auswertung (Demo bei Bedarf) | Thanh | 2 min | [05_ergebnis_auswertung.md](05_ergebnis_auswertung.md) |
+| | **Gesamt** | | **10 min** | |
 | | Rückfragen | alle | | [06_rueckfragen.md](06_rueckfragen.md) |
 
 ## Aufbau jeder Datei
