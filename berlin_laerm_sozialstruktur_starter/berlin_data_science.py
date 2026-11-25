@@ -20,8 +20,8 @@ Ablauf:
 7. Karten und Ergebnisgrafik zur Leitfrage
 
 Quellen:
-MSS 2025 Index-Tabellen (Tabelle 1, 2.1 und 3):
-https://www.berlin.de/sen/stadt/stadtdaten/stadtwissen/monitoring-soziale-stadtentwicklung/bericht-2025/tabellen-der-index-indikatoren-zum-bericht-2025/
+MSS 2023 Index-Tabellen (Tabelle 1, 2.1 und 3; Datenstand 31.12.2022):
+https://www.berlin.de/sen/stadt/stadtdaten/stadtwissen/monitoring-soziale-stadtentwicklung/bericht-2023/tabellen-der-index-indikatoren/
 Lärmkarten Berlin 2022 (WFS ua_stratlaerm_2022, Fassadenpegel), siehe aggregate_noise.py:
 https://www.berlin.de/umweltatlas/verkehr-laerm/laermbelastung/2022/download/
 IBB Wohnungsmarktbericht 2025 (Angebotsmieten nach Planungsräumen):
@@ -70,11 +70,13 @@ OUT = ROOT / "outputs"
 BOUNDARIES_FILE = RAW / "planungsraeume.geojson"  # GeoJSON von ODIS Berlin
 BOUNDARY_COLUMNS = ["plr_id", "plr_name", "pgr_id", "bez", "stadtraum_name", "geometry"]
 
-# MSS 2025. Die Tabellen werden über die achtstellige PLR-ID erkannt, nicht über
+# Alle Daten beziehen sich auf das Jahr der Lärmkarte (2022):
+# MSS 2023 (Datenstand 31.12.2022) und IBB-Mieten 2022.
+# Die Tabellen werden über die achtstellige PLR-ID erkannt, nicht über
 # feste Kopfzeilen. Werte = Spaltenposition in der jeweiligen Excel-Tabelle.
-SOCIAL_STATUS_FILE = RAW / "sozialdaten.xlsx"                            # Tabelle 1
-SOCIAL_INDICATOR_FILE = RAW / "mss2025_indexindikatoren_anteile_plr.xlsx"  # Tabelle 2.1
-SOCIAL_ZVALUE_FILE = RAW / "mss2025_indexindikatoren_zwerte_plr.xlsx"      # Tabelle 3
+SOCIAL_STATUS_FILE = RAW / "mss2023_gesamtindex_plr.xlsx"                # Tabelle 1
+SOCIAL_INDICATOR_FILE = RAW / "mss2023_indexindikatoren_anteile_plr.xlsx"  # Tabelle 2.1
+SOCIAL_ZVALUE_FILE = RAW / "mss2023_indexindikatoren_zwerte_plr.xlsx"      # Tabelle 3
 SOCIAL_INDICATOR_COLUMNS = {
     "arbeitslosenanteil_prozent": 3,    # S1: Arbeitslose nach SGB II
     "alleinerziehende_prozent": 4,      # S2: Kinder in alleinerziehenden Haushalten
@@ -86,8 +88,8 @@ MSS_CLASS_LABELS = {1: "hoch", 2: "mittel", 3: "niedrig", 4: "sehr niedrig"}
 
 # Mietdaten: IBB-Tabelle mit Planungsraum-ID (Spalte 1), Median (4) und Fallzahl (6).
 RENT_FILE = RAW / "Mietdaten.xlsx"
-RENT_SHEET = "Planungsräume_2025"
-RENT_SHEET_2022 = "Planungsräume_2022"  # Robustheitscheck: gleiches Jahr wie Lärmkarte
+RENT_SHEET = "Planungsräume_2022"       # Hauptanalyse: gleiches Jahr wie Lärmkarte
+RENT_SHEET_2025 = "Planungsräume_2025"  # Robustheitscheck: aktuellste Mietdaten
 
 # Lärmdaten: aggregierte Fassadenpegel aus aggregate_noise.py
 NOISE_CSV = PROCESSED / "laermdaten_aggregiert.csv"
@@ -202,7 +204,7 @@ def load_boundaries() -> gpd.GeoDataFrame:
 
 
 def load_social() -> pd.DataFrame:
-    """MSS 2025: Statusklasse (Tab. 1), Einzelindikatoren S1-S4 (Tab. 2.1), Status-Index (Tab. 3)."""
+    """MSS 2023 (Stand 31.12.2022): Statusklasse (Tab. 1), Einzelindikatoren S1-S4 (Tab. 2.1), Status-Index (Tab. 3)."""
     status = read_plr_rows(SOCIAL_STATUS_FILE, 0, 0)
     social = pd.DataFrame({
         "plr_id": status[0],
@@ -255,15 +257,15 @@ def load_all_data() -> gpd.GeoDataFrame:
     areas = load_boundaries()
     social = load_social()
     rents = load_rents(RENT_SHEET)
-    rents_2022 = load_rents(RENT_SHEET_2022).drop(columns="plr_name_ibb").rename(columns={
-        "angebotsmiete_median_roh": "angebotsmiete_2022_median_roh",
-        "anzahl_mietinserate": "anzahl_mietinserate_2022",
+    rents_2025 = load_rents(RENT_SHEET_2025).drop(columns="plr_name_ibb").rename(columns={
+        "angebotsmiete_median_roh": "angebotsmiete_2025_median_roh",
+        "anzahl_mietinserate": "anzahl_mietinserate_2025",
     })
     noise = load_noise()
 
     data = areas.merge(social, on="plr_id", how="left", validate="one_to_one")
     data = data.merge(rents, on="plr_id", how="left", validate="one_to_one")
-    data = data.merge(rents_2022, on="plr_id", how="left", validate="one_to_one")
+    data = data.merge(rents_2025, on="plr_id", how="left", validate="one_to_one")
     data = data.merge(noise, on="plr_id", how="left", validate="one_to_one")
 
     # Namensabgleich: deckt vertauschte oder abweichende Zuordnungen in der IBB-Tabelle auf.
@@ -603,13 +605,13 @@ def run_regressions(df: gpd.GeoDataFrame) -> dict:
     pd.DataFrame(vifs).to_csv(OUT / "vif_values.csv", index=False)
     print(coefficients.query("term in [@index, @noise]").round(4).to_string(index=False))
 
-    # Robustheit Mietmodell: Mindestfallzahl und Mietjahr 2022 (= Jahr der Lärmkarte)
+    # Robustheit Mietmodell: Mindestfallzahl und aktuellstes Mietjahr 2025
     robustness = []
     rent_predictors = [noise, index, *CONTROL_VARIABLES]
     variants = [(f"Mindestfallzahl {t}", "angebotsmiete_median_roh", "anzahl_mietinserate", t)
                 for t in RENT_ROBUSTNESS_THRESHOLDS]
-    variants.append(("Mieten 2022, Mindestfallzahl 21", "angebotsmiete_2022_median_roh",
-                     "anzahl_mietinserate_2022", MIN_RENT_LISTINGS))
+    variants.append(("Mieten 2025, Mindestfallzahl 21", "angebotsmiete_2025_median_roh",
+                     "anzahl_mietinserate_2025", MIN_RENT_LISTINGS))
     for variant, rent_col, count_col, threshold in variants:
         sub = df.assign(_miete=df[rent_col].where(df[count_col] >= threshold))
         model_data = sub[["_miete", *rent_predictors, CLUSTER_SE_COLUMN]].dropna()
@@ -790,7 +792,7 @@ def export_choropleths(gdf: gpd.GeoDataFrame) -> None:
                 legend_kwds={"title": "MSS-Status", "loc": "lower left"},
                 missing_kwds={"color": "lightgrey", "label": "Keine Daten"})
     draw_districts(ax, gdf)
-    ax.set_title("Berlin nach Planungsräumen: MSS-Statusklasse 2025")
+    ax.set_title("Berlin nach Planungsräumen: MSS-Statusklasse 2023 (Stand 31.12.2022)")
     ax.set_axis_off()
     fig.tight_layout()
     fig.savefig(OUT / "map_mss_statusklasse.png", dpi=180)
