@@ -107,9 +107,9 @@ Hier stehen alle Einstellungen. Wer etwas ändern will (z. B. eine andere Mindes
 | `RAW`, `PROCESSED`, `OUT` | `data/raw`, `data/processed`, `outputs` | Ordner |
 | `BOUNDARIES_FILE` | `planungsraeume.geojson` | Gebietsgrenzen |
 | `BOUNDARY_COLUMNS` | `plr_id, plr_name, pgr_id, bez, stadtraum_name, geometry` | welche Spalten der Geodatei behalten werden |
-| `SOCIAL_STATUS_FILE` / `SOCIAL_INDICATOR_FILE` / `SOCIAL_ZVALUE_FILE` | MSS-Tabellen 1, 2.1, 3 | Sozialdaten |
+| `SOCIAL_STATUS_FILE` / `SOCIAL_INDICATOR_FILE` / `SOCIAL_ZVALUE_FILE` | MSS 2023, Tabellen 1, 2.1, 3 (`mss2023_*.xlsx`) | Sozialdaten, Stand 31.12.2022 |
 | `SOCIAL_INDICATOR_COLUMNS` | `{arbeitslosenanteil_prozent: 3, ...}` | in welcher Excel-Spalte welcher Indikator steht (gezählt ab 0) |
-| `RENT_FILE`, `RENT_SHEET` | `Mietdaten.xlsx`, `Planungsräume_2025` | Mietdaten |
+| `RENT_FILE`, `RENT_SHEET` | `Mietdaten.xlsx`, `Planungsräume_2022` | Mietdaten 2022 (gleiches Jahr wie die Lärmkarte) |
 | `NOISE_CSV`, `NOISE_COLUMNS` | `laermdaten_aggregiert.csv`, LDEN und Anteil > 65 dB | Ergebnis von `aggregate_noise.py` |
 | `CONTROL_VARIABLES` | `log_einwohnerdichte`, `innere_stadt` | Kontrollvariablen der Regression |
 | `CLUSTER_SE_COLUMN` | `pgr_id` | Gruppierung für geclusterte Standardfehler (Prognoseraum) |
@@ -171,7 +171,7 @@ Lädt die drei MSS-Tabellen und verknüpft sie:
 **Ausgabe:** Tabelle mit `plr_id`, `einwohner`, vier Indikatoren und `mss_statusindex`.
 
 #### `load_rents()`
-Lädt das Blatt `Planungsräume_2025` der IBB-Tabelle: ID (Spalte 1), Name (2), Median-Miete (4), Fallzahl (6). **Ausgabe:** Tabelle mit `plr_id`, `plr_name_ibb`, `angebotsmiete_median_roh`, `anzahl_mietinserate`.
+Lädt das Blatt `Planungsräume_2022` der IBB-Tabelle: ID (Spalte 1), Name (2), Median-Miete (4), Fallzahl (6). **Ausgabe:** Tabelle mit `plr_id`, `plr_name_ibb`, `angebotsmiete_median_roh`, `anzahl_mietinserate`.
 
 #### `load_noise()`
 Liest die von `aggregate_noise.py` erzeugte CSV und gibt `plr_id`, `laerm_gesamt_lden_db` und `anteil_fassaden_lden_ueber_65_prozent` zurück. Fehlt die Datei, kommt die Meldung, zuerst `aggregate_noise.py` auszuführen.
@@ -194,7 +194,7 @@ Speichert den fertigen Datensatz (inkl. Index, Quintil, Cluster) als GeoPackage 
 
 #### `run_pca_benachteiligungsindex(df)`
 Berechnet den Benachteiligungsindex (Methode in [03_methoden.md, 3.2](03_methoden.md)).
-1. Nimmt die vier Indikatoren aller Gebiete ohne fehlende Werte (535),
+1. Nimmt die vier Indikatoren aller Gebiete ohne fehlende Werte (536),
 2. standardisiert sie (`StandardScaler`),
 3. führt die PCA durch (`PCA().fit_transform`),
 4. speichert Eigenwerte und erklärte Varianz → `pca_explained_variance.csv`,
@@ -225,7 +225,7 @@ Berechnet den Benachteiligungsindex (Methode in [03_methoden.md, 3.2](03_methode
 
 #### `run_regressions(df)`
 Schätzt die drei Modelle A1, A2, B (Formeln in [03_methoden.md, 3.5](03_methoden.md)). Für jedes Modell:
-1. wählt die benötigten Spalten und entfernt Zeilen mit fehlenden Werten (A1/A2: 535 Gebiete, B: 434),
+1. wählt die benötigten Spalten und entfernt Zeilen mit fehlenden Werten (A1/A2: 536 Gebiete, B: 341),
 2. fügt die Konstante hinzu (`sm.add_constant`),
 3. schätzt das Modell **zweimal**:
    - klassisch: `sm.OLS(y, X).fit()`,
@@ -243,14 +243,14 @@ Alle Zeilen zusammen → `regression_uebersicht.csv`.
 Übersetzt einen standardisierten Clustermittelwert in Text: > 0,25 → „hoch“, < −0,25 → „niedrig“, sonst „mittel“.
 
 #### `run_clustering(df)`
-1. nimmt die 434 Gebiete mit allen drei Merkmalen (Lärm, Index, Miete) und standardisiert sie,
+1. nimmt die 341 Gebiete mit allen drei Merkmalen (Lärm, Index, Miete) und standardisiert sie,
 2. **Elbow-Methode:** berechnet K-Means für k = 1 bis 8 und zeichnet die Inertia → `kmeans_elbow.png`,
 3. berechnet K-Means mit k = 4 (`n_init=20`, `random_state=42`),
 4. sortiert die Cluster nach mittlerem Lärm (C1 = leisester), damit die Nummern bei jedem Lauf gleich sind,
 5. benennt die Cluster automatisch mit `describe_level`,
 6. speichert die Clusterprofile (Mittelwerte in Originaleinheiten, Anzahl) → `kmeans_cluster_profiles.csv` und die Zuordnung jedes Gebiets → `kmeans_clusters.csv`.
 
-**Ausgabe:** Spalte mit dem Clusternamen für jedes der 434 Gebiete.
+**Ausgabe:** Spalte mit dem Clusternamen für jedes der 341 Gebiete.
 
 ### Moran's I (Abschnitt 8)
 

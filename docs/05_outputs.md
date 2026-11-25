@@ -2,6 +2,8 @@
 
 Nach `python berlin_data_science.py` liegen im Ordner `outputs/` 25 Dateien. Dieses Kapitel geht sie in der Reihenfolge der Analyse durch. Für jede Datei: **Was steht drin? Wie liest man es? Was sehen wir bei uns?**
 
+Alle Zahlen beziehen sich auf das **Bezugsjahr 2022** (Lärm 2022, Sozialdaten 31.12.2022, Mieten 2022).
+
 ## Übersicht
 
 | Schritt | Datei | Typ |
@@ -30,11 +32,11 @@ Für jede Variable: Anzahl gültiger (`gueltig`) und fehlender (`fehlend`) Werte
 | Variable | gültig | fehlend | Grund |
 |---|---:|---:|---|
 | Lärm | 542 | 0 | vollständig |
-| S1–S4, Status-Index | 535 | 7 | vom MSS ausgeschlossene, fast unbewohnte Gebiete |
-| Rohmiete | 522 | 20 | keine Inserate |
-| Miete (gefiltert) | 434 | 108 | zusätzlich 88 Gebiete mit < 21 Inseraten |
+| S1–S4, Status-Index | 536 | 6 | vom MSS ausgeschlossene, fast unbewohnte Gebiete |
+| Rohmiete 2022 | 518 | 24 | keine Inserate |
+| Miete (gefiltert) | 341 | 201 | zusätzlich 177 Gebiete mit < 21 Inseraten |
 
-→ Lärm-Analysen: 535 Gebiete, Miet-Analysen und K-Means: 434 Gebiete.
+→ Lärm-Analysen: 536 Gebiete, Miet-Analysen und K-Means: 341 Gebiete.
 
 ### `pruefung_namensabweichungen_ibb.csv`
 Gebiete, deren Name in der IBB-Miettabelle anders lautet als in den offiziellen Gebietsgrenzen. 5 Treffer: 3 Schreibvarianten, 1 andere Bezeichnung und **Wittenau Mitte/Süd vertauscht** (siehe [02_daten.md](02_daten.md)).
@@ -47,13 +49,15 @@ Gebiete, deren Name in der IBB-Miettabelle anders lautet als in den offiziellen 
 Kurzbericht: Anzahl Gebiete, Eigenwerte, erklärte Varianz von PC1, Ladungen, Übereinstimmung mit dem amtlichen Index.
 
 ```text
-Erklärte Varianz PC1: 80.7%
-Ladungen PC1: Arbeitslosigkeit 0.967, Alleinerziehende 0.649, Transferbezug 0.966, Kinderarmut 0.973
+PCA über 4 MSS-Status-Indikatoren, n = 536 Planungsräume
+Eigenwerte: [3.254, 0.66, 0.064, 0.03]
+Erklärte Varianz PC1: 81.2%
+Ladungen PC1: Arbeitslosigkeit 0.969, Alleinerziehende 0.657, Transferbezug 0.968, Kinderarmut 0.973
 Übereinstimmung mit dem amtlichen MSS-Status-Index: r = 0.998
 ```
 
 **So liest man es:**
-- **80,7 %** → Eine einzige Zahl fasst die vier Indikatoren sehr gut zusammen. Faustregel: Ab ca. 60–70 % ist eine Hauptkomponente ein guter Index.
+- **81,2 %** → Eine einzige Zahl fasst die vier Indikatoren sehr gut zusammen. Faustregel: Ab ca. 60–70 % ist eine Hauptkomponente ein guter Index.
 - **Ladungen alle positiv und hoch** → Alle Indikatoren zeigen in dieselbe Richtung; der Index misst „mehr Benachteiligung“.
 - **r = 0,998** → Unser Index ist praktisch identisch mit dem amtlichen. Die Berechnung ist korrekt.
 
@@ -65,8 +69,8 @@ Ladungen aller vier Komponenten. Für uns ist nur die Spalte `PC1` relevant.
 
 ### `pca_scree_ladungen.png`
 Zwei Diagramme nebeneinander:
-- **Links – Scree-Plot:** Balken = erklärte Varianz jeder Komponente. Ein hoher erster Balken und danach ein steiler Abfall („Geröllhalde“, englisch *scree*) zeigt: Eine Komponente reicht. Bei uns: 80,7 % → 16,7 % → 1,8 % → 0,8 %.
-- **Rechts – Ladungen von PC1:** Wie stark jeder Indikator in den Index eingeht. Kinderarmut, Arbeitslosigkeit und Transferbezug fast gleich (≈ 0,97), Alleinerziehende schwächer (0,65).
+- **Links – Scree-Plot:** Balken = erklärte Varianz jeder Komponente. Ein hoher erster Balken und danach ein steiler Abfall („Geröllhalde“, englisch *scree*) zeigt: Eine Komponente reicht. Bei uns: 81,2 % → 16,5 % → 1,6 % → 0,7 %.
+- **Rechts – Ladungen von PC1:** Wie stark jeder Indikator in den Index eingeht. Kinderarmut, Arbeitslosigkeit und Transferbezug fast gleich (≈ 0,97), Alleinerziehende schwächer (0,66).
 
 **Für die Präsentation:** „Wir haben vier soziale Indikatoren mit einer PCA zu einem Benachteiligungsindex zusammengefasst. Die erste Komponente erklärt 81 % der Varianz und stimmt mit dem offiziellen Index des Senats zu 99,8 % überein.“
 
@@ -81,13 +85,13 @@ Pro Variable: `count` (Anzahl), `mean` (Mittelwert), `std` (Standardabweichung),
 |---|---:|---:|---:|---:|---:|
 | Lärm LDEN (dB) | 57,3 | 3,6 | 46,4 | 57,4 | 73,2 |
 | Fassaden > 65 dB (%) | 6,5 | 6,9 | 0 | 5,3 | 100 |
-| Benachteiligungsindex | 0,0 | 1,0 | −1,8 | −0,15 | 3,7 |
-| S1 Arbeitslosigkeit (%) | 4,7 | 2,6 | 0 | 4,2 | 16,9 |
-| S2 Alleinerziehende (%) | 24,0 | 6,3 | 6,0 | 23,3 | 46,3 |
-| S3 Transferbezug (%) | 9,9 | 6,1 | 1,1 | 8,3 | 35,8 |
-| S4 Kinderarmut (%) | 20,8 | 13,6 | 0 | 17,8 | 64,5 |
-| Miete (EUR/m²) | 15,1 | 4,5 | 6,6 | 15,0 | 27,5 |
-| Einwohnerdichte (EW/km²) | 9.966 | 7.554 | 0 | 8.809 | 35.603 |
+| Benachteiligungsindex | 0,0 | 1,0 | −1,9 | −0,21 | 3,5 |
+| S1 Arbeitslosigkeit (%) | 4,3 | 2,4 | 0,4 | 3,9 | 15,3 |
+| S2 Alleinerziehende (%) | 26,4 | 6,8 | 8,4 | 25,6 | 50,2 |
+| S3 Transferbezug (%) | 10,5 | 6,5 | 0,9 | 8,7 | 37,0 |
+| S4 Kinderarmut (%) | 22,4 | 14,5 | 0,4 | 19,2 | 67,9 |
+| Miete 2022 (EUR/m²) | 11,8 | 4,1 | 5,4 | 11,2 | 27,1 |
+| Einwohnerdichte (EW/km²) | 9.893 | 7.599 | 0 | 8.582 | 36.290 |
 
 **So liest man es:**
 - Liegen Mittelwert und Median nah beieinander (Lärm, Miete), ist die Verteilung symmetrisch.
@@ -107,9 +111,9 @@ Neun Histogramme. Die x-Achse zeigt die Werte, die y-Achse die Anzahl der Planun
 Heatmap aller paarweisen Pearson-Korrelationen. Jede Zelle zeigt r für die Kombination aus Zeile und Spalte. Rot = positiv, blau = negativ, weiß = kein Zusammenhang. Die Diagonale ist immer 1 (jede Variable mit sich selbst).
 
 **Was wir sehen:**
-- **Rotes Quadrat in der Mitte:** Index und S1–S4 korrelieren stark (0,46–0,97) → deshalb ist eine PCA sinnvoll.
-- **Lärm – Index: 0,06** → praktisch kein linearer Zusammenhang (erster Hinweis zu H1).
-- **Miete – Lärm: +0,38**, **Miete – Index: −0,48** → mittlere Zusammenhänge (erster Hinweis zu H2).
+- **Rotes Quadrat in der Mitte:** Index und S1–S4 korrelieren stark (0,66–0,97) → deshalb ist eine PCA sinnvoll.
+- **Lärm – Index: 0,08** → praktisch kein linearer Zusammenhang (erster Hinweis zu H1).
+- **Miete – Lärm: +0,42**, **Miete – Index: −0,51** → mittlere Zusammenhänge (erster Hinweis zu H2).
 - **Lärm – Fassaden > 65 dB: 0,80** → beide Lärmmaße messen Ähnliches.
 
 **Achtung:** Die Korrelationsmatrix ist nur ein Überblick. Korrelationen berücksichtigen keine anderen Einflüsse; das macht erst die Regression.
@@ -123,23 +127,23 @@ Pro Quintil: Anzahl (`count`), Mittelwert, Median, SD des Lärms.
 
 | Quintil | n | Mittel (dB) | Median (dB) | SD |
 |---|---:|---:|---:|---:|
-| Q1 (geringste Benachteiligung) | 107 | 55,8 | 55,3 | 3,6 |
-| Q2 | 107 | 58,4 | 58,3 | 3,9 |
-| Q3 | 107 | 57,8 | 58,0 | 3,3 |
-| Q4 | 107 | 57,2 | 57,3 | 3,4 |
-| Q5 (stärkste Benachteiligung) | 107 | 57,4 | 57,9 | 3,4 |
+| Q1 (geringste Benachteiligung) | 108 | 55,3 | 55,1 | 3,4 |
+| Q2 | 107 | 58,8 | 58,7 | 4,0 |
+| Q3 | 107 | 57,7 | 58,0 | 3,1 |
+| Q4 | 107 | 57,4 | 57,8 | 3,2 |
+| Q5 (stärkste Benachteiligung) | 107 | 57,3 | 57,8 | 3,5 |
 
 (In der CSV steht in den Gruppennamen ein Zeilenumbruch `\n` – das ist für die Achsenbeschriftung der Grafik gedacht.)
 
 ### `anova_ergebnis.txt`
-F-Wert und p-Wert: **F = 7,97, p < 0,001**.
+F-Wert und p-Wert: **F = 14,27, p < 0,001**.
 
 **So liest man es:**
 1. p < 0,05 → Die fünf Gruppen haben **nicht** alle denselben mittleren Lärm.
-2. Dann in die Tabelle schauen, **wo** der Unterschied liegt: Q1 ist 1,9 dB leiser als der Durchschnitt von Q2–Q5. Q2 bis Q5 unterscheiden sich untereinander kaum (max. 1,2 dB).
+2. Dann in die Tabelle schauen, **wo** der Unterschied liegt: Q1 ist 2,5 dB leiser als der Durchschnitt von Q2–Q5. Q2 bis Q5 unterscheiden sich untereinander kaum (max. 1,5 dB).
 3. Schlussfolgerung: Nicht „je ärmer, desto lauter“, sondern „die Wohlhabendsten wohnen leiser“.
 
-Zur Einordnung von 1,9 dB: Ein Unterschied von 2 dB ist hörbar, aber klein (zum Vergleich: Halbierung des Verkehrs = −3 dB).
+Zur Einordnung: Ein Unterschied von 2,5 dB ist hörbar, aber nicht groß (zum Vergleich: Halbierung des Verkehrs = −3 dB).
 
 ---
 
@@ -163,26 +167,26 @@ Unsere Werte:
 
 | Modell | Term | β | p (klassisch) | p (korrigiert) | R² |
 |---|---|---:|---:|---:|---:|
-| A1 | Benachteiligung | +0,224 | 0,152 | **0,445** | 0,004 |
-| A2 | Benachteiligung | +0,223 | 0,154 | **0,289** | 0,225 |
-| A2 | log(Dichte) | +0,008 | 0,965 | 0,977 | 0,225 |
-| A2 | Innere Stadt | +3,553 | < 0,001 | **< 0,001** | 0,225 |
-| B | Lärm | +0,234 | < 0,001 | **< 0,001** | 0,534 |
-| B | Benachteiligung | −2,089 | < 0,001 | **< 0,001** | 0,534 |
-| B | log(Dichte) | +0,070 | 0,737 | 0,727 | 0,534 |
-| B | Innere Stadt | +4,018 | < 0,001 | **< 0,001** | 0,534 |
+| A1 | Benachteiligung | +0,285 | 0,068 | **0,318** | 0,006 |
+| A2 | Benachteiligung | +0,267 | 0,086 | **0,215** | 0,225 |
+| A2 | log(Dichte) | −0,038 | 0,825 | 0,881 | 0,225 |
+| A2 | Innere Stadt | +3,585 | < 0,001 | **< 0,001** | 0,225 |
+| B | Lärm | +0,268 | < 0,001 | **< 0,001** | 0,512 |
+| B | Benachteiligung | −1,770 | < 0,001 | **< 0,001** | 0,512 |
+| B | log(Dichte) | −0,153 | 0,479 | 0,399 | 0,512 |
+| B | Innere Stadt | +3,240 | < 0,001 | **< 0,001** | 0,512 |
 
 **So liest man es – Schritt für Schritt am Beispiel A2, Benachteiligung:**
 1. **Vorzeichen:** + → mehr Benachteiligung geht mit mehr Lärm einher.
-2. **Größe:** 0,22 dB pro Standardabweichung Benachteiligung → sehr klein, nicht hörbar.
-3. **p-Wert (korrigiert):** 0,289 > 0,05 → nicht signifikant. Der kleine Effekt kann gut Zufall sein.
+2. **Größe:** 0,27 dB pro Standardabweichung Benachteiligung → sehr klein, nicht hörbar.
+3. **p-Wert (korrigiert):** 0,215 > 0,05 → nicht signifikant. Der kleine Effekt kann gut Zufall sein.
 4. **Fazit:** Kein belastbarer Zusammenhang.
 
-**Und am Beispiel A2, Innere Stadt:** +3,55 dB, p < 0,001 → Innenstadtgebiete sind bei gleicher Benachteiligung und Dichte deutlich lauter. Die **Lage** ist der stärkste Einflussfaktor auf den Lärm.
+**Und am Beispiel A2, Innere Stadt:** +3,58 dB, p < 0,001 → Innenstadtgebiete sind bei gleicher Benachteiligung und Dichte deutlich lauter. Die **Lage** ist der stärkste Einflussfaktor auf den Lärm.
 
-**R² vergleichen:** A1 erklärt nur 0,4 % der Lärmunterschiede, A2 22,5 % – fast der ganze Zuwachs kommt von „Innere Stadt“. Modell B erklärt 53 % der Mietunterschiede.
+**R² vergleichen:** A1 erklärt nur 0,6 % der Lärmunterschiede, A2 22,5 % – fast der ganze Zuwachs kommt von „Innere Stadt“. Modell B erklärt 51 % der Mietunterschiede.
 
-**Klassisch vs. korrigiert:** Die Koeffizienten sind gleich, die korrigierten p-Werte sind größer. Bei keiner Variable ändert sich durch die Korrektur die Entscheidung „signifikant / nicht signifikant“.
+**Klassisch vs. korrigiert:** Die Koeffizienten sind gleich, die korrigierten p-Werte bei den Lärmmodellen deutlich größer. Wichtig: Ohne Korrektur läge A1 mit p = 0,068 knapp an der 5-%-Grenze; mit Korrektur (p = 0,318) bleibt davon nichts übrig. An der Entscheidung „signifikant / nicht signifikant“ ändert sich bei keiner Variable etwas.
 
 ### `regression_A1_laerm_einfach.txt`, `regression_A2_laerm_kontrollen.txt`, `regression_B_miete.txt`
 Die vollständigen Ergebnistabellen von statsmodels. Jede Datei enthält **zwei Tabellen**: oben die räumlich korrigierte (maßgeblich), unten die klassische (zum Vergleich).
@@ -196,16 +200,16 @@ Ausschnitt aus `regression_A2_laerm_kontrollen.txt` (räumlich korrigierte Tabel
 ================================================================================
 Dep. Variable:     laerm_gesamt_lden_db   R-squared:                       0.225
 Model:                              OLS   Adj. R-squared:                  0.220
-Method:                   Least Squares   F-statistic:                     20.95
-No. Observations:                   535   Prob (F-statistic):           2.85e-09
+Method:                   Least Squares   F-statistic:                     20.61
+No. Observations:                   536   Prob (F-statistic):           3.60e-09
 Covariance Type:                cluster
 =========================================================================================
                             coef    std err          z      P>|z|      [0.025      0.975]
 -----------------------------------------------------------------------------------------
-const                    55.9980      2.168     25.832      0.000      51.749      60.247
-benachteiligungsindex     0.2229      0.210      1.061      0.289      -0.189       0.635
-log_einwohnerdichte       0.0076      0.261      0.029      0.977      -0.503       0.519
-innere_stadt              3.5525      0.677      5.250      0.000       2.226       4.879
+const                    56.3945      2.109     26.737      0.000      52.260      60.529
+benachteiligungsindex     0.2673      0.216      1.240      0.215      -0.155       0.690
+log_einwohnerdichte      -0.0380      0.254     -0.150      0.881      -0.536       0.460
+innere_stadt              3.5849      0.676      5.305      0.000       2.260       4.909
 ```
 
 | Feld | Bedeutung |
@@ -215,7 +219,7 @@ innere_stadt              3.5525      0.677      5.250      0.000       2.226   
 | `Adj. R-squared` | R², leicht nach unten korrigiert für die Zahl der Variablen |
 | `No. Observations` | Anzahl der Gebiete im Modell |
 | `Covariance Type` | `cluster` = räumlich korrigiert, `nonrobust` = klassisch |
-| `F-statistic`, `Prob (F-statistic)` | Test, ob das Modell **insgesamt** etwas erklärt (hier ja: p = 2,85·10⁻⁹ – wegen „Innere Stadt“, nicht wegen der Benachteiligung) |
+| `F-statistic`, `Prob (F-statistic)` | Test, ob das Modell **insgesamt** etwas erklärt (hier ja: p = 3,6·10⁻⁹ – wegen „Innere Stadt“, nicht wegen der Benachteiligung) |
 | `coef` | Koeffizient β |
 | `std err` | Standardfehler |
 | `z` (bzw. `t`) | coef / std err; ab einem Betrag über 1,96 signifikant |
@@ -223,8 +227,8 @@ innere_stadt              3.5525      0.677      5.250      0.000       2.226   
 | `[0.025  0.975]` | Bereich, in dem der wahre Wert mit 95 % Sicherheit liegt. **Enthält er die 0, ist der Effekt nicht signifikant.** |
 | `const` | Achsenabschnitt: erwarteter Wert, wenn alle Einflussvariablen 0 sind (hier rein rechnerisch, ohne eigene Bedeutung) |
 
-Beispiel „benachteiligungsindex“: coef 0,2229 / std err 0,210 = z 1,061 < 1,96 → p = 0,289 → nicht signifikant; das 95-%-Intervall [−0,189; 0,635] enthält die 0.
-Beispiel „innere_stadt“: z = 5,25 → p < 0,001 → signifikant; das Intervall [2,2; 4,9] dB liegt klar über 0.
+Beispiel „benachteiligungsindex“: coef 0,2673 / std err 0,216 = z 1,24 < 1,96 → p = 0,215 → nicht signifikant; das 95-%-Intervall [−0,155; 0,690] enthält die 0.
+Beispiel „innere_stadt“: z = 5,31 → p < 0,001 → signifikant; das Intervall [2,3; 4,9] dB liegt klar über 0.
 
 Die Zeilen unter der Koeffiziententabelle (Omnibus, Durbin-Watson usw.) sind weitere Diagnosen, die wir nicht auswerten.
 
@@ -238,31 +242,31 @@ Liniendiagramm: x-Achse = Anzahl Cluster k (1–8), y-Achse = Inertia. Die gestr
 **So liest man es:** Man sucht den „Ellenbogen“, ab dem die Kurve flach wird. Bei uns flacht sie zwischen k = 3 und k = 4 ab; danach bringen weitere Cluster nur noch wenig. k = 4 wurde zusätzlich wegen der guten Interpretierbarkeit gewählt.
 
 ### `kmeans_cluster_profiles.csv`
-Pro Cluster: Name, Anzahl Gebiete, mittlerer Lärm, mittlerer Index, mittlere Miete (in Originaleinheiten).
+Pro Cluster: Name, Anzahl Gebiete, mittlerer Lärm, mittlerer Index, mittlere Miete 2022 (in Originaleinheiten).
 
 | Cluster | Anzahl | Lärm (dB) | Index | Miete (EUR/m²) |
 |---|---:|---:|---:|---:|
-| C1: Lärm niedrig · Benachteiligung hoch · Miete niedrig | 88 | 54,8 | +1,00 | 9,73 |
-| C2: Lärm niedrig · Benachteiligung niedrig · Miete mittel | 113 | 55,0 | −0,75 | 15,30 |
-| C3: Lärm hoch · Benachteiligung hoch · Miete niedrig | 101 | 59,3 | +0,87 | 13,77 |
-| C4: Lärm hoch · Benachteiligung niedrig · Miete hoch | 132 | 60,5 | −0,46 | 19,63 |
+| C1: Lärm niedrig · Benachteiligung hoch · Miete niedrig | 74 | 54,6 | +1,15 | 7,64 |
+| C2: Lärm niedrig · Benachteiligung niedrig · Miete mittel | 90 | 55,6 | −0,69 | 11,67 |
+| C3: Lärm hoch · Benachteiligung hoch · Miete niedrig | 88 | 59,9 | +0,82 | 10,18 |
+| C4: Lärm hoch · Benachteiligung niedrig · Miete hoch | 89 | 60,5 | −0,51 | 16,81 |
 
 **So liest man es:** Jeder Cluster ist ein „typisches Gebiet“. Die Bezeichnungen „hoch/niedrig“ sind relativ zum Berliner Durchschnitt.
 - **C1** – benachteiligt, aber leise: typischerweise Großsiedlungen am Stadtrand (Plattenbau, Hochhaussiedlungen mit viel Grün zwischen den Häusern).
 - **C2** – wohlhabend und leise: Einfamilienhaus- und Villengebiete am Stadtrand.
-- **C3** – **benachteiligt und laut**: dicht bebaute Altbauquartiere der Innenstadt mit vielen Hauptstraßen. Das ist die **mehrfach belastete** Gruppe im Sinne der Umweltgerechtigkeit.
+- **C3** – **benachteiligt und laut**: dicht bebaute Quartiere der Innenstadt und innenstadtnahe Gebiete mit vielen Hauptstraßen. Das ist die **mehrfach belastete** Gruppe im Sinne der Umweltgerechtigkeit.
 - **C4** – wohlhabend, laut und teuer: beliebte Innenstadtlagen.
 
 ### `kmeans_clusters.csv`
-Zuordnung jedes der 434 Gebiete (`plr_id`, `plr_name`) zu seinem Cluster. Nützlich, um nachzuschlagen, wo ein bestimmter Kiez landet.
+Zuordnung jedes der 341 Gebiete (`plr_id`, `plr_name`) zu seinem Cluster. Nützlich, um nachzuschlagen, wo ein bestimmter Kiez landet.
 
 ### `map_kmeans_cluster.png`
-Berlin-Karte, jedes Gebiet in der Farbe seines Clusters, Bezirksgrenzen schwarz, Bezirksnamen eingeblendet. Graue Gebiete sind nicht geclustert (Miete oder Sozialdaten fehlen).
+Berlin-Karte, jedes Gebiet in der Farbe seines Clusters, Bezirksgrenzen schwarz, Bezirksnamen eingeblendet. Graue Gebiete sind nicht geclustert (Miete oder Sozialdaten fehlen) – 2022 sind das 201 Gebiete, vor allem am Stadtrand.
 
 **Was wir sehen:**
 - **Rosa (C4)** bildet den Innenstadtkern (Charlottenburg, Mitte, Prenzlauer Berg, Friedrichshain).
-- **Blau (C3)** liegt wie ein Ring um bzw. neben diesem Kern: Wedding (Osloer Straße, Soldiner Straße, Parkviertel), Moabit-West, Nord-Neukölln, Schöneberg, Teile von Spandau.
-- **Grün (C1)** liegt in Inseln am Stadtrand: Marzahn-Hellersdorf, Hohenschönhausen, Gropiusstadt, Märkisches Viertel.
+- **Blau (C3)** liegt neben diesem Kern: Wedding (Osloer Straße, Parkviertel), Moabit-West, Tempelhof-Schöneberg, Spandau-Mitte, Teile Nord-Neuköllns.
+- **Grün (C1)** liegt in Inseln am Stadtrand: Marzahn-Hellersdorf, Neu-Hohenschönhausen, Gropiusstadt, Märkisches Viertel.
 - **Orange (C2)** dominiert die äußeren Bezirke (Steglitz-Zehlendorf, Treptow-Köpenick, Pankow-Nord).
 
 Die Karte zeigt auf einen Blick: Laut und benachteiligt sind **bestimmte Innenstadtquartiere**, nicht „die armen Gebiete“ insgesamt.
@@ -276,14 +280,14 @@ Die Karte zeigt auf einen Blick: Laut und benachteiligt sind **bestimmte Innenst
 | Variable | n | I | p_sim |
 |---|---:|---:|---:|
 | Lärm | 542 | 0,465 | 0,001 |
-| Benachteiligungsindex | 535 | 0,427 | 0,001 |
-| Residuen A1 | 535 | 0,475 | 0,001 |
-| Residuen A2 | 535 | 0,304 | 0,001 |
+| Benachteiligungsindex | 536 | 0,435 | 0,001 |
+| Residuen A1 | 536 | 0,474 | 0,001 |
+| Residuen A2 | 536 | 0,306 | 0,001 |
 
 **So liest man es:**
 - **I zwischen 0,3 und 0,5** → deutliche räumliche Clusterung: Ähnliche Werte liegen nebeneinander.
 - **p_sim = 0,001** → kleinstmöglicher Wert bei 999 Permutationen; keine einzige Zufallsmischung erreichte ein so hohes I. Man schreibt korrekt „p ≤ 0,001“.
-- **Residuen:** Auch die Fehler der Regression sind räumlich gehäuft → die klassischen p-Werte wären zu optimistisch → deshalb die geclusterten Standardfehler. Durch die Kontrollvariablen sinkt I von 0,47 auf 0,30: Die Lage erklärt einen Teil der räumlichen Struktur, aber nicht alles.
+- **Residuen:** Auch die Fehler der Regression sind räumlich gehäuft → die klassischen p-Werte wären zu optimistisch → deshalb die geclusterten Standardfehler. Durch die Kontrollvariablen sinkt I von 0,47 auf 0,31: Die Lage erklärt einen Teil der räumlichen Struktur, aber nicht alles.
 
 ---
 
@@ -297,7 +301,7 @@ Farbskala von hellgelb (leise, ~46 dB) bis dunkelviolett/schwarz (laut, ~73 dB).
 **Was wir sehen:** Ein klares **Zentrum-Rand-Gefälle**: Die Innenstadt ist dunkel (laut), der Stadtrand hell (leise). Die lautesten Gebiete liegen in Mitte/Tiergarten (Hansaviertel, Lüneburger Straße). Einzelne laute Streifen folgen großen Verkehrsachsen. Das passt zum starken Effekt von „Innere Stadt“ in der Regression und zu Moran's I = 0,46.
 
 ### `map_benachteiligungsindex.png`
-Farbskala von dunkelviolett (wenig benachteiligt, ~−1,8) bis gelb (stark benachteiligt, ~+3,7).
+Farbskala von dunkelviolett (wenig benachteiligt, ~−1,9) bis gelb (stark benachteiligt, ~+3,5).
 
 **Was wir sehen:** Benachteiligung konzentriert sich in zwei Arten von Gebieten:
 1. **Innenstadtnah:** Wedding/Gesundbrunnen, Moabit, Nord-Neukölln, Kreuzberg-Nord,
@@ -306,9 +310,9 @@ Farbskala von dunkelviolett (wenig benachteiligt, ~−1,8) bis gelb (stark benac
 Der Südwesten (Steglitz-Zehlendorf) und der Südosten (Köpenick) sind wenig benachteiligt. **Genau deshalb gibt es keinen linearen Zusammenhang mit Lärm:** Ein Teil der benachteiligten Gebiete liegt im lauten Zentrum, ein anderer im leisen Stadtrand – die beiden Effekte heben sich im Durchschnitt auf.
 
 ### `map_angebotsmiete_median_eur_m2.png`
-Farbskala von dunkel (günstig, ~6,6 EUR/m²) bis gelb (teuer, ~27,5 EUR/m²); grau = weniger als 21 Inserate.
+Farbskala von dunkel (günstig, ~5,4 EUR/m²) bis gelb (teuer, ~27 EUR/m²); grau = weniger als 21 Inserate im Jahr 2022.
 
-**Was wir sehen:** Die höchsten Mieten in Mitte, Charlottenburg, Prenzlauer Berg und Friedrichshain-Kreuzberg; die niedrigsten in den Großsiedlungen am Stadtrand. Viele graue Flächen am Stadtrand = Einfamilienhausgebiete mit wenigen Mietinseraten.
+**Was wir sehen:** Die höchsten Mieten in Mitte, Charlottenburg, Prenzlauer Berg und Friedrichshain-Kreuzberg; die niedrigsten in den Großsiedlungen am Stadtrand. Viele graue Flächen = Gebiete mit wenigen Mietinseraten (2022 deutlich mehr als in späteren Jahren).
 
 ---
 
@@ -324,13 +328,13 @@ Farbskala von dunkel (günstig, ~6,6 EUR/m²) bis gelb (teuer, ~27,5 EUR/m²); g
 - **Lesart:** Q1 (links) liegt sichtbar tiefer, Q2–Q5 liegen fast auf einer Höhe. Die Boxen überlappen stark → die Unterschiede sind klein im Vergleich zur Streuung innerhalb der Gruppen.
 
 **Feld B – Balken: Anteil Fassaden über 65 dB je Quintil**
-- **Lesart:** Gleiches Muster mit einem anschaulicheren Maß: In Q1 sind im Mittel ca. 4 % der Fassaden stark belastet, in Q2–Q5 ca. 6–8 %. Am stärksten belastet ist Q2, nicht Q5.
+- **Lesart:** Gleiches Muster mit einem anschaulicheren Maß: In Q1 sind im Mittel ca. 3 % der Fassaden stark belastet, in Q2–Q5 ca. 6–8 %. Am stärksten belastet ist Q2 (8,4 %), nicht Q5 (6,6 %).
 
 **Feld C – Streudiagramm mit Regressionsgerade**
 - Jeder Punkt = ein Planungsraum (x = Benachteiligung, y = Lärm).
 - Rote Linie = Regressionsgerade aus Modell A1.
 - Legende: Koeffizienten und **räumlich korrigierte** p-Werte von A1 und A2.
-- **Lesart:** Die Punktwolke hat keine erkennbare Richtung, die Gerade ist fast waagerecht (+0,22 dB pro SD). Die p-Werte (0,445 und 0,289) zeigen: kein signifikanter Zusammenhang.
+- **Lesart:** Die Punktwolke hat keine erkennbare Richtung, die Gerade ist fast waagerecht (+0,29 dB pro SD). Die p-Werte (0,318 und 0,215) zeigen: kein signifikanter Zusammenhang.
 
 **Feld D – Antworttext**
 Automatisch aus den Ergebnissen erzeugter Text mit allen Kernaussagen (Inhalt siehe unten).
@@ -340,13 +344,13 @@ Derselbe Antworttext wie in Feld D, zum Kopieren:
 
 ```text
 H1 nicht gestützt: Kein signifikanter linearer Zusammenhang zwischen Benachteiligung und Lärm.
-A1: +0.22 dB pro SD Benachteiligung, R² = 0.004, p = 0.445 (räumlich korrigiert; ohne Korrektur p = 0.152).
-    A2 (mit Dichte und Lage): +0.22 dB, p = 0.289 (ohne Korrektur p = 0.154).
-Mittlerer Lärm je Quintil: 55.8 | 58.4 | 57.7 | 57.2 | 57.4 dB (Q1→Q5), ANOVA p < 0.001. Die am wenigsten
-    benachteiligten Gebiete (Q1) sind 1.9 dB leiser; zwischen Q2 und Q5 liegen nur 1.2 dB → kein Gradient.
-H2: Miete steigt um +0.23 EUR/m² pro dB (p < 0.001) und sinkt um 2.09 EUR/m² pro SD Benachteiligung (p < 0.001).
-H3: 4 Gebietstypen; 101 von 434 PLR (23%) sind zugleich laut und benachteiligt (Mehrfachbelastung).
-Räumlich: Lärm I = 0.46, Residuen A2 I = 0.30 → Standardfehler nach Prognoseraum geclustert.
+A1: +0.29 dB pro SD Benachteiligung, R² = 0.006, p = 0.318 (räumlich korrigiert; ohne Korrektur p = 0.068).
+    A2 (mit Dichte und Lage): +0.27 dB, p = 0.215 (ohne Korrektur p = 0.086).
+Mittlerer Lärm je Quintil: 55.3 | 58.8 | 57.7 | 57.4 | 57.3 dB (Q1→Q5), ANOVA p < 0.001. Die am wenigsten
+    benachteiligten Gebiete (Q1) sind 2.5 dB leiser; zwischen Q2 und Q5 liegen nur 1.5 dB → kein Gradient.
+H2: Miete steigt um +0.27 EUR/m² pro dB (p < 0.001) und sinkt um 1.77 EUR/m² pro SD Benachteiligung (p < 0.001).
+H3: 4 Gebietstypen; 88 von 341 PLR (26%) sind zugleich laut und benachteiligt (Mehrfachbelastung).
+Räumlich: Lärm I = 0.46, Residuen A2 I = 0.31 → Standardfehler nach Prognoseraum geclustert.
 ```
 
 Die ausführliche Deutung steht in [06_ergebnis.md](06_ergebnis.md).

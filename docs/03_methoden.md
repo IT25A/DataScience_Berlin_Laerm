@@ -8,7 +8,7 @@ Dieses Kapitel erklärt jedes Verfahren in vier Schritten:
 
 Wer die Formeln überspringt, versteht trotzdem alles Wesentliche.
 
-**Schreibweise:** $n$ = Anzahl der Beobachtungen (bei uns meist 535 Planungsräume), $x_i$ = Wert des $i$-ten Planungsraums, $\sum$ = „Summe über alle“.
+**Schreibweise:** $n$ = Anzahl der Beobachtungen (bei uns meist 536 Planungsräume), $x_i$ = Wert des $i$-ten Planungsraums, $\sum$ = „Summe über alle“.
 
 ---
 
@@ -45,7 +45,7 @@ $$
 
 Faustregel: |r| < 0,1 kein, 0,1–0,3 schwach, 0,3–0,5 mittel, > 0,5 stark.
 
-*Beispiel:* Miete und Lärm: r = 0,38 (mittel, positiv). Benachteiligung und Lärm: r = 0,06 (praktisch kein linearer Zusammenhang).
+*Beispiel:* Miete und Lärm: r = 0,42 (mittel, positiv). Benachteiligung und Lärm: r = 0,08 (praktisch kein linearer Zusammenhang).
 
 ### Hypothesentest und p-Wert
 Jeder Test hat zwei Hypothesen:
@@ -60,7 +60,7 @@ Der **p-Wert** beantwortet die Frage: *Wenn H₀ stimmt – wie wahrscheinlich i
 Die Grenze 0,05 heißt **Signifikanzniveau** (α). Sie bedeutet: Wir akzeptieren eine 5-%-Chance, einen Effekt zu „finden“, den es gar nicht gibt.
 
 **Achtung, häufige Missverständnisse:**
-- p = 0,29 heißt **nicht** „mit 29 % Wahrscheinlichkeit gibt es keinen Effekt“.
+- p = 0,21 heißt **nicht** „mit 21 % Wahrscheinlichkeit gibt es keinen Effekt“.
 - „Nicht signifikant“ heißt **nicht** „bewiesen, dass es keinen Effekt gibt“, sondern „die Daten liefern keinen überzeugenden Beleg für einen Effekt“.
 - „Signifikant“ heißt **nicht** „groß“ oder „wichtig“. Ein winziger Effekt kann bei vielen Daten signifikant sein.
 
@@ -78,7 +78,7 @@ Je größer |z|, desto kleiner der p-Wert. Ab |z| > 1,96 ist p < 0,05.
 ## 3.1 Standardisierung (z-Transformation)
 
 ### Idee
-Unsere Variablen haben verschiedene Einheiten: Lärm in dB (Werte um 57), Kinderarmut in % (Werte zwischen 0 und 64), Miete in EUR/m². Wenn man sie direkt kombiniert, dominiert die Variable mit den größten Zahlen. Die Standardisierung bringt alle Variablen auf **dieselbe Skala**: Mittelwert 0, Standardabweichung 1.
+Unsere Variablen haben verschiedene Einheiten: Lärm in dB (Werte um 57), Kinderarmut in % (Werte zwischen 0 und 68), Miete in EUR/m². Wenn man sie direkt kombiniert, dominiert die Variable mit den größten Zahlen. Die Standardisierung bringt alle Variablen auf **dieselbe Skala**: Mittelwert 0, Standardabweichung 1.
 
 ### Formel
 
@@ -89,13 +89,13 @@ $$
 Ein z-Wert sagt: **Wie viele Standardabweichungen liegt dieser Wert über (+) oder unter (−) dem Durchschnitt?**
 
 ### Beispiel
-Planungsraum „Soldiner Straße“ (Wedding), Arbeitslosigkeit S1 = 9,24 %. Berliner Mittel 4,69 %, SD 2,59 %:
+Planungsraum „Soldiner Straße“ (Wedding), Arbeitslosigkeit S1 = 8,84 % (Ende 2022). Berliner Mittel 4,34 %, SD 2,43 %:
 
 $$
-z = \frac{9{,}24 - 4{,}69}{2{,}59} = 1{,}76
+z = \frac{8{,}84 - 4{,}34}{2{,}43} = 1{,}86
 $$
 
-Die Arbeitslosigkeit liegt dort 1,76 Standardabweichungen über dem Berliner Durchschnitt.
+Die Arbeitslosigkeit liegt dort 1,86 Standardabweichungen über dem Berliner Durchschnitt.
 
 ### Wozu bei uns?
 - vor der **PCA** (sonst würde Kinderarmut mit der größten Streuung die PCA dominieren),
@@ -120,7 +120,7 @@ Die PCA sucht die **eine Richtung**, in der die Daten am stärksten streuen, und
 
 ### Formeln und Schritte
 
-**Schritt 1 – Standardisieren:** Jeder Indikator wird z-transformiert (siehe 3.1). Ergebnis: Matrix $Z$ mit 535 Zeilen (PLR) und 4 Spalten (S1–S4).
+**Schritt 1 – Standardisieren:** Jeder Indikator wird z-transformiert (siehe 3.1). Ergebnis: Matrix $Z$ mit 536 Zeilen (PLR) und 4 Spalten (S1–S4).
 
 **Schritt 2 – Korrelationsmatrix:** Für standardisierte Daten ist die Kovarianzmatrix gleich der Korrelationsmatrix $R$:
 
@@ -132,10 +132,10 @@ Unsere Korrelationsmatrix:
 
 |  | S1 | S2 | S3 | S4 |
 |---|---:|---:|---:|---:|
-| S1 Arbeitslosigkeit | 1 | 0,52 | 0,95 | 0,93 |
-| S2 Alleinerziehende | 0,52 | 1 | 0,46 | 0,52 |
-| S3 Transferbezug | 0,95 | 0,46 | 1 | 0,96 |
-| S4 Kinderarmut | 0,93 | 0,52 | 0,96 | 1 |
+| S1 Arbeitslosigkeit | 1 | 0,52 | 0,95 | 0,94 |
+| S2 Alleinerziehende | 0,52 | 1 | 0,48 | 0,52 |
+| S3 Transferbezug | 0,95 | 0,48 | 1 | 0,96 |
+| S4 Kinderarmut | 0,94 | 0,52 | 0,96 | 1 |
 
 S1, S3 und S4 sind fast identisch (r ≈ 0,95). S2 hängt schwächer mit den anderen zusammen.
 
@@ -152,10 +152,10 @@ Bei 4 Variablen gibt es 4 Eigenwerte. Ihre Summe ist 4 (jede standardisierte Var
 
 | Komponente | Eigenwert λ | Erklärte Varianz λ / 4 |
 |---|---:|---:|
-| PC1 | 3,235 | **80,7 %** |
-| PC2 | 0,670 | 16,7 % |
-| PC3 | 0,071 | 1,8 % |
-| PC4 | 0,032 | 0,8 % |
+| PC1 | 3,254 | **81,2 %** |
+| PC2 | 0,660 | 16,5 % |
+| PC3 | 0,064 | 1,6 % |
+| PC4 | 0,030 | 0,7 % |
 
 **Erklärte Varianz:**
 
@@ -163,16 +163,16 @@ $$
 \text{Anteil}_k = \frac{\lambda_k}{\sum_j \lambda_j}
 $$
 
-PC1 allein enthält 80,7 % der gesamten Information der vier Indikatoren. Das ist sehr viel – eine einzige Zahl reicht.
+PC1 allein enthält 81,2 % der gesamten Information der vier Indikatoren. Das ist sehr viel – eine einzige Zahl reicht.
 
 **Schritt 4 – Gewichte (Eigenvektor von PC1):**
 
 | Indikator | Gewicht $v$ | Ladung $v \cdot \sqrt{\lambda}$ |
 |---|---:|---:|
-| S1 Arbeitslosigkeit | 0,538 | 0,967 |
-| S2 Alleinerziehende | 0,361 | 0,649 |
-| S3 Transferbezug | 0,537 | 0,966 |
-| S4 Kinderarmut | 0,541 | 0,973 |
+| S1 Arbeitslosigkeit | 0,537 | 0,969 |
+| S2 Alleinerziehende | 0,364 | 0,657 |
+| S3 Transferbezug | 0,537 | 0,968 |
+| S4 Kinderarmut | 0,539 | 0,973 |
 
 Die **Ladung** ist die Korrelation zwischen einem Indikator und PC1. Alle Ladungen sind positiv und hoch → PC1 misst „allgemeine soziale Benachteiligung“. S2 trägt etwas weniger bei, weil es schwächer mit den anderen zusammenhängt.
 
@@ -184,20 +184,20 @@ $$
 
 **Schritt 6 – Index standardisieren:** Damit der Index leicht lesbar ist, wird PC1 noch einmal z-standardisiert (Mittelwert 0, SD 1). Das Vorzeichen wird so gewählt, dass **höhere Werte = mehr Benachteiligung** bedeuten.
 
-### Durchgerechnetes Beispiel: Soldiner Straße (Wedding)
+### Durchgerechnetes Beispiel: Soldiner Straße (Wedding), Stand Ende 2022
 
 | | S1 | S2 | S3 | S4 |
 |---|---:|---:|---:|---:|
-| Rohwert | 9,24 % | 25,67 % | 21,81 % | 48,07 % |
-| Berliner Mittel | 4,69 % | 24,00 % | 9,87 % | 20,75 % |
-| SD | 2,59 | 6,30 | 6,09 | 13,56 |
-| z-Wert | 1,76 | 0,27 | 1,96 | 2,02 |
-| × Gewicht | 0,538 | 0,361 | 0,537 | 0,541 |
-| = Beitrag | 0,95 | 0,10 | 1,05 | 1,09 |
+| Rohwert | 8,84 % | 27,92 % | 24,49 % | 52,73 % |
+| Berliner Mittel | 4,34 % | 26,35 % | 10,48 % | 22,36 % |
+| SD | 2,43 | 6,80 | 6,47 | 14,50 |
+| z-Wert | 1,86 | 0,23 | 2,17 | 2,09 |
+| × Gewicht | 0,537 | 0,364 | 0,537 | 0,539 |
+| = Beitrag | 1,00 | 0,08 | 1,16 | 1,13 |
 
-PC1 = 0,95 + 0,10 + 1,05 + 1,09 = **3,18**. Die Standardabweichung aller PC1-Werte ist 1,80. Index = 3,18 / 1,80 = **+1,77**.
+PC1 = 1,00 + 0,08 + 1,16 + 1,13 = **3,37**. Die Standardabweichung aller PC1-Werte ist 1,80. Index = 3,37 / 1,80 = **+1,87**.
 
-→ Die Soldiner Straße ist 1,77 Standardabweichungen benachteiligter als der Berliner Durchschnitt und gehört damit zu den rund 5 % am stärksten benachteiligten Planungsräumen Berlins.
+→ Die Soldiner Straße ist 1,87 Standardabweichungen benachteiligter als der Berliner Durchschnitt und gehört damit zu den rund 5 % am stärksten benachteiligten Planungsräumen Berlins.
 
 ### Qualitätskontrolle
 Das MSS berechnet selbst einen amtlichen Status-Index (Summe der z-Werte S1–S4, erneut standardisiert). Unser PCA-Index korreliert damit zu **r = 0,998** – praktisch identisch. Das bestätigt, dass unsere Berechnung richtig ist und der Index das misst, was er messen soll.
@@ -220,14 +220,14 @@ Bevor man testet, muss man die Daten kennenlernen: Welche Werte kommen vor? Gibt
 ### Wozu bei uns?
 - Prüfen, ob Werte plausibel sind (z. B. Lärm zwischen 46 und 73 dB – passt).
 - Erkennen, dass die Einwohnerdichte sehr schief verteilt ist → deshalb Logarithmus.
-- Erster Überblick über Zusammenhänge (z. B. dass Benachteiligung und Lärm kaum linear korrelieren, Benachteiligung und Miete aber deutlich negativ: r = −0,48).
+- Erster Überblick über Zusammenhänge (z. B. dass Benachteiligung und Lärm kaum linear korrelieren, Benachteiligung und Miete aber deutlich negativ: r = −0,51).
 
 ---
 
 ## 3.4 Varianzanalyse (ANOVA)
 
 ### Idee
-Wir teilen die 535 Planungsräume nach ihrem Benachteiligungsindex in **fünf gleich große Gruppen** (Quintile) zu je 107 Gebieten:
+Wir teilen die 536 Planungsräume nach ihrem Benachteiligungsindex in **fünf gleich große Gruppen** (Quintile) zu je 107 bzw. 108 Gebieten:
 - Q1 = die 20 % am wenigsten benachteiligten,
 - …
 - Q5 = die 20 % am stärksten benachteiligten.
@@ -250,7 +250,7 @@ $$
 F = \frac{SS_{zwischen} / (k-1)}{SS_{innerhalb} / (N-k)}
 $$
 
-mit $k$ = Anzahl Gruppen (5), $N$ = Anzahl Beobachtungen (535), $n_g$ = Größe der Gruppe $g$ (107).
+mit $k$ = Anzahl Gruppen (5), $N$ = Anzahl Beobachtungen (536), $n_g$ = Größe der Gruppe $g$ (107 bzw. 108).
 
 - **F groß** → die Gruppen unterscheiden sich stark im Verhältnis zur Streuung innerhalb → kleiner p-Wert.
 - **F ≈ 1** → die Unterschiede zwischen den Gruppen sind nicht größer als die zufällige Streuung.
@@ -263,11 +263,11 @@ Hypothesen:
 
 | Quintil | Q1 (geringste) | Q2 | Q3 | Q4 | Q5 (stärkste) |
 |---|---:|---:|---:|---:|---:|
-| mittlerer Lärm (dB) | 55,8 | 58,4 | 57,7 | 57,2 | 57,4 |
+| mittlerer Lärm (dB) | 55,3 | 58,8 | 57,7 | 57,4 | 57,3 |
 
-F = 7,97 (mit 4 und 530 Freiheitsgraden), p < 0,001 → H₀ wird verworfen; die Gruppen unterscheiden sich.
+F = 14,27 (mit 4 und 531 Freiheitsgraden), p < 0,001 → H₀ wird verworfen; die Gruppen unterscheiden sich.
 
-**Aber:** Die ANOVA sagt nur, **dass** es Unterschiede gibt, nicht **welche**. Der Blick auf die Mittelwerte zeigt: Nur Q1 fällt heraus (1,9 dB leiser). Q2 bis Q5 liegen innerhalb von 1,2 dB – es gibt keine Treppe „je benachteiligter, desto lauter“.
+**Aber:** Die ANOVA sagt nur, **dass** es Unterschiede gibt, nicht **welche**. Der Blick auf die Mittelwerte zeigt: Nur Q1 fällt heraus (2,5 dB leiser). Q2 bis Q5 liegen innerhalb von 1,5 dB – es gibt keine Treppe „je benachteiligter, desto lauter“.
 
 ### Wozu bei uns?
 Prüfung von H1 ohne Annahme einer geraden Linie. Die ANOVA deckt das **nichtlineare Muster** auf, das die Regression allein übersehen würde.
@@ -343,12 +343,12 @@ Diese Formel setzt voraus, dass die Fehler **unabhängig** voneinander sind. Gen
 Weil der Benachteiligungsindex standardisiert ist, bedeutet sein Koeffizient: **Änderung der Zielgröße, wenn die Benachteiligung um eine Standardabweichung steigt.**
 
 *Beispiel aus Modell A2:*
-- Benachteiligung: β = +0,22 → pro SD mehr Benachteiligung im Mittel 0,22 dB mehr Lärm (winzig – 0,22 dB hört kein Mensch).
-- Innere Stadt: β = +3,55 → Innenstadtgebiete sind bei gleicher Benachteiligung und Dichte im Mittel 3,6 dB lauter.
+- Benachteiligung: β = +0,27 → pro SD mehr Benachteiligung im Mittel 0,27 dB mehr Lärm (winzig – 0,27 dB hört kein Mensch).
+- Innere Stadt: β = +3,58 → Innenstadtgebiete sind bei gleicher Benachteiligung und Dichte im Mittel 3,6 dB lauter.
 
-*Beispiel aus Modell B:*
-- Lärm: β = +0,23 → pro dB mehr Lärm ist die Angebotsmiete im Mittel 0,23 EUR/m² höher.
-- Benachteiligung: β = −2,09 → pro SD mehr Benachteiligung ist die Miete 2,09 EUR/m² niedriger.
+*Beispiel aus Modell B (Mieten 2022):*
+- Lärm: β = +0,27 → pro dB mehr Lärm ist die Angebotsmiete im Mittel 0,27 EUR/m² höher.
+- Benachteiligung: β = −1,77 → pro SD mehr Benachteiligung ist die Miete 1,77 EUR/m² niedriger.
 
 ### Wozu bei uns?
 Hauptprüfung von H1 (Modelle A1, A2) und H2 (Modell B).
@@ -403,10 +403,10 @@ Der kleinstmögliche Wert ist 1/1000 = 0,001. Wenn p_sim = 0,001, hat **keine ei
 | Lärm | 0,46 | ≤ 0,001 | laute Gebiete liegen neben lauten |
 | Benachteiligungsindex | 0,43 | ≤ 0,001 | benachteiligte Gebiete liegen nebeneinander |
 | Residuen Modell A1 | 0,47 | ≤ 0,001 | die Fehler der Regression sind räumlich gehäuft |
-| Residuen Modell A2 | 0,30 | ≤ 0,001 | mit Kontrollvariablen weniger, aber immer noch gehäuft |
+| Residuen Modell A2 | 0,31 | ≤ 0,001 | mit Kontrollvariablen weniger, aber immer noch gehäuft |
 
 ### Warum sind die Residuen so wichtig?
-Ein **Residuum** ist der Fehler des Modells für ein Gebiet: tatsächlicher Lärm minus vorhergesagter Lärm. Wenn die Residuen räumlich geclustert sind, heißt das: Das Modell liegt in ganzen Stadtteilen systematisch daneben. Die 535 Planungsräume liefern dann **weniger unabhängige Information**, als die Zahl 535 vermuten lässt – ähnlich wie 10 Umfragen in derselben Familie weniger aussagen als 10 Umfragen in verschiedenen Familien.
+Ein **Residuum** ist der Fehler des Modells für ein Gebiet: tatsächlicher Lärm minus vorhergesagter Lärm. Wenn die Residuen räumlich geclustert sind, heißt das: Das Modell liegt in ganzen Stadtteilen systematisch daneben. Die 536 Planungsräume liefern dann **weniger unabhängige Information**, als die Zahl 536 vermuten lässt – ähnlich wie 10 Umfragen in derselben Familie weniger aussagen als 10 Umfragen in verschiedenen Familien.
 
 Folge: Die klassischen Standardfehler sind **zu klein**, die p-Werte **zu optimistisch**. Deshalb brauchen wir die Korrektur in 3.7.
 
@@ -442,13 +442,13 @@ $$
 
 | Modell, Koeffizient | β | SE klassisch | p klassisch | SE geclustert | p geclustert |
 |---|---:|---:|---:|---:|---:|
-| A1: Benachteiligung → Lärm | +0,22 | 0,156 | 0,152 | 0,294 | **0,445** |
-| A2: Benachteiligung → Lärm | +0,22 | 0,156 | 0,154 | 0,210 | **0,289** |
-| A2: Innere Stadt → Lärm | +3,55 | 0,352 | < 0,001 | 0,677 | **< 0,001** |
-| B: Lärm → Miete | +0,23 | 0,047 | < 0,001 | 0,056 | **< 0,001** |
-| B: Benachteiligung → Miete | −2,09 | 0,170 | < 0,001 | 0,180 | **< 0,001** |
+| A1: Benachteiligung → Lärm | +0,29 | 0,156 | 0,068 | 0,285 | **0,318** |
+| A2: Benachteiligung → Lärm | +0,27 | 0,155 | 0,086 | 0,216 | **0,215** |
+| A2: Innere Stadt → Lärm | +3,58 | 0,349 | < 0,001 | 0,676 | **< 0,001** |
+| B: Lärm → Miete | +0,27 | 0,051 | < 0,001 | 0,051 | **< 0,001** |
+| B: Benachteiligung → Miete | −1,77 | 0,173 | < 0,001 | 0,168 | **< 0,001** |
 
-Die Standardfehler werden durch die Korrektur fast doppelt so groß (A1: 0,156 → 0,294). Die **Aussagen ändern sich nicht**: H1 bleibt nicht signifikant (noch deutlicher), H2 bleibt hochsignifikant. Damit ist das Ergebnis gegen den Einwand „Ihr habt die räumliche Abhängigkeit ignoriert“ abgesichert.
+Bei den Lärmmodellen werden die Standardfehler durch die Korrektur fast doppelt so groß (A1: 0,156 → 0,285). Das ist hier besonders wichtig: **Ohne Korrektur läge A1 mit p = 0,068 knapp an der Signifikanzgrenze** – man könnte versucht sein, von einer „Tendenz“ zu sprechen. Mit Korrektur (p = 0,318) ist klar, dass davon nichts übrig bleibt. Beim Mietmodell B ändern sich die Standardfehler kaum. Die **Aussagen** bleiben gleich: H1 nicht signifikant, H2 hochsignifikant. Damit ist das Ergebnis gegen den Einwand „Ihr habt die räumliche Abhängigkeit ignoriert“ abgesichert.
 
 ### Wozu bei uns?
 Alle p-Werte in der Ergebnisgrafik und im Fazit sind die **geclusterten** p-Werte. Die klassischen stehen zum Vergleich in `regression_uebersicht.csv`.
@@ -468,7 +468,7 @@ Drei standardisierte Merkmale (Standardisierung ist nötig, sonst würde die Mie
 2. Benachteiligungsindex,
 3. Angebotsmiete.
 
-Weil die Miete nur für 434 Planungsräume vorliegt, werden diese 434 geclustert. Die übrigen erscheinen in der Karte grau.
+Weil die Miete 2022 nur für 341 Planungsräume verlässlich vorliegt, werden diese 341 geclustert. Die übrigen erscheinen in der Karte grau.
 
 ### Algorithmus (Lloyd-Algorithmus)
 1. **Start:** Wähle $k$ zufällige Startpunkte als Clustermittelpunkte („Zentroide“).
@@ -492,8 +492,8 @@ Mehr Cluster verringern immer die Inertia (im Extremfall ist jedes Gebiet sein e
 
 | k | 1 | 2 | 3 | 4 | 5 | 6 | 7 |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| Inertia | 1302 | 825 | 615 | 518 | 453 | 400 | 359 |
-| Verbesserung | – | −477 | −210 | −97 | −65 | −53 | −41 |
+| Inertia | 1023 | 629 | 480 | 387 | 332 | 294 | 266 |
+| Verbesserung | – | −394 | −149 | −93 | −55 | −38 | −28 |
 
 Bis k = 4 sinkt die Inertia deutlich, danach nur noch wenig. Der Knick ist nicht ganz scharf (ehrlicherweise liegt er irgendwo zwischen 3 und 4). Den Ausschlag für **k = 4** gibt die **Interpretierbarkeit**: Mit 4 Clustern entsteht eine klare Typologie aus „laut/leise“ × „benachteiligt/wohlhabend“. Das ist eine bewusste, begründete Entscheidung.
 
@@ -504,10 +504,10 @@ Für jeden Cluster wird der Mittelwert jedes standardisierten Merkmals berechnet
 
 | Cluster | n | Lärm (dB) | Index | Miete (EUR/m²) | Typische Gebiete |
 |---|---:|---:|---:|---:|---|
-| C1 Lärm niedrig · Benachteiligung hoch · Miete niedrig | 88 | 54,8 | +1,00 | 9,7 | Großsiedlungen am Stadtrand (Marzahn-Hellersdorf, Hohenschönhausen, Gropiusstadt) |
-| C2 Lärm niedrig · Benachteiligung niedrig · Miete mittel | 113 | 55,0 | −0,75 | 15,3 | Äußere Stadt, Einfamilienhausgebiete (Pankow, Steglitz-Zehlendorf, Köpenick) |
-| C3 Lärm hoch · Benachteiligung hoch · Miete niedrig | 101 | 59,3 | +0,87 | 13,8 | Wedding, Nord-Neukölln, Schöneberg-Nord |
-| C4 Lärm hoch · Benachteiligung niedrig · Miete hoch | 132 | 60,5 | −0,46 | 19,6 | Innenstadt: Charlottenburg, Mitte, Prenzlauer Berg, Friedrichshain |
+| C1 Lärm niedrig · Benachteiligung hoch · Miete niedrig | 74 | 54,6 | +1,15 | 7,6 | Großsiedlungen am Stadtrand (Marzahn-Hellersdorf, Neu-Hohenschönhausen, Gropiusstadt, Märkisches Viertel, Falkenhagener Feld) |
+| C2 Lärm niedrig · Benachteiligung niedrig · Miete mittel | 90 | 55,6 | −0,69 | 11,7 | Äußere Stadt, Einfamilienhausgebiete (Pankow, Steglitz-Zehlendorf, Köpenick) |
+| C3 Lärm hoch · Benachteiligung hoch · Miete niedrig | 88 | 59,9 | +0,82 | 10,2 | Wedding, Moabit-West, Tempelhof-Schöneberg, Spandau-Mitte, Teile Nord-Neuköllns |
+| C4 Lärm hoch · Benachteiligung niedrig · Miete hoch | 89 | 60,5 | −0,51 | 16,8 | Innenstadt: Charlottenburg, Mitte, Prenzlauer Berg, Friedrichshain |
 
 ### Wozu bei uns?
 Prüfung von H3 und Identifikation des „mehrfach belasteten“ Gebietstyps C3.

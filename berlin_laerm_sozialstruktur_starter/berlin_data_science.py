@@ -66,11 +66,13 @@ OUT = ROOT / "outputs"
 BOUNDARIES_FILE = RAW / "planungsraeume.geojson"  # GeoJSON von ODIS Berlin
 BOUNDARY_COLUMNS = ["plr_id", "plr_name", "pgr_id", "bez", "stadtraum_name", "geometry"]
 
-# MSS 2025. Die Tabellen werden über die achtstellige PLR-ID erkannt, nicht über
+# Alle Daten beziehen sich auf das Jahr der Lärmkarte (2022):
+# MSS 2023 (Datenstand 31.12.2022) und IBB-Mieten 2022.
+# Die Tabellen werden über die achtstellige PLR-ID erkannt, nicht über
 # feste Kopfzeilen. Werte = Spaltenposition in der jeweiligen Excel-Tabelle.
-SOCIAL_STATUS_FILE = RAW / "sozialdaten.xlsx"                            # Tabelle 1
-SOCIAL_INDICATOR_FILE = RAW / "mss2025_indexindikatoren_anteile_plr.xlsx"  # Tabelle 2.1
-SOCIAL_ZVALUE_FILE = RAW / "mss2025_indexindikatoren_zwerte_plr.xlsx"      # Tabelle 3
+SOCIAL_STATUS_FILE = RAW / "mss2023_gesamtindex_plr.xlsx"                # Tabelle 1
+SOCIAL_INDICATOR_FILE = RAW / "mss2023_indexindikatoren_anteile_plr.xlsx"  # Tabelle 2.1
+SOCIAL_ZVALUE_FILE = RAW / "mss2023_indexindikatoren_zwerte_plr.xlsx"      # Tabelle 3
 SOCIAL_INDICATOR_COLUMNS = {
     "arbeitslosenanteil_prozent": 3,    # S1: Arbeitslose nach SGB II
     "alleinerziehende_prozent": 4,      # S2: Kinder in alleinerziehenden Haushalten
@@ -81,7 +83,7 @@ SOCIAL_INDICATORS = list(SOCIAL_INDICATOR_COLUMNS)
 
 # Mietdaten: IBB-Tabelle mit Planungsraum-ID (Spalte 1), Median (4) und Fallzahl (6).
 RENT_FILE = RAW / "Mietdaten.xlsx"
-RENT_SHEET = "Planungsräume_2025"
+RENT_SHEET = "Planungsräume_2022"
 
 # Lärmdaten: aggregierte Fassadenpegel aus aggregate_noise.py
 NOISE_CSV = PROCESSED / "laermdaten_aggregiert.csv"

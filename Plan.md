@@ -28,7 +28,8 @@ Ausführliche Dokumentation für Einsteiger: `docs/README.md`.
 ## 1. Erledigt (Review vom 24.11.2026)
 
 ### Daten
-- [x] MSS 2025 **Tabelle 2.1** (Einzelindikatoren S1–S4) und **Tabelle 3** (z-Werte, amtlicher Status-Index) ergänzt
+- [x] MSS **Tabelle 2.1** (Einzelindikatoren S1–S4) und **Tabelle 3** (z-Werte, amtlicher Status-Index) ergänzt
+- [x] **Einheitliches Bezugsjahr 2022:** Lärm 2022, MSS 2023 (Stand 31.12.2022), Mieten 2022; Prüfung mit MSS 2025 / Mieten 2025 ergibt dieselben Aussagen
 - [x] Lärm neu aggregiert: zusätzlich Median-LDEN und Anteil Fassaden > 65 dB LDEN / > 55 dB LN (alte Werte identisch reproduziert)
 - [x] Namensabgleich IBB ↔ Geometrie automatisiert (`outputs/pruefung_namensabweichungen_ibb.csv`)
 - [x] Excel-Import robust über PLR-ID statt fester Kopfzeilen (Fußnotenzeilen werden ignoriert)
@@ -97,4 +98,4 @@ python berlin_data_science.py
 - Korrelation ≠ Kausalität
 - p-Werte aus den Modellen mit geclusterten Standardfehlern sind maßgeblich (räumliche Autokorrelation)
 - Angebotsmieten ≠ tatsächlich gezahlte Mieten
-- Zeitstände: Lärm 2022, MSS 2025 (31.12.2024), Mieten 2025
+- Zeitstände einheitlich 2022: Lärm 2022, MSS 2023 (31.12.2022), Mieten 2022

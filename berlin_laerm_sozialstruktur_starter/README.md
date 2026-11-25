@@ -19,10 +19,14 @@ pip install -r requirements.txt
 | Datei | Inhalt | Quelle |
 |---|---|---|
 | `planungsraeume.geojson` | 542 LOR-Planungsräume (Polygone, EPSG:25833) | [ODIS Berlin](https://daten.odis-berlin.de/) |
-| `sozialdaten.xlsx` | MSS 2025, Tabelle 1: Einwohner, Status-/Dynamikklasse | [MSS 2025 Index-Tabellen](https://www.berlin.de/sen/stadt/stadtdaten/stadtwissen/monitoring-soziale-stadtentwicklung/bericht-2025/tabellen-der-index-indikatoren-zum-bericht-2025/) |
-| `mss2025_indexindikatoren_anteile_plr.xlsx` | MSS 2025, Tabelle 2.1: Indikatoren S1–S4 in % | wie oben |
-| `mss2025_indexindikatoren_zwerte_plr.xlsx` | MSS 2025, Tabelle 3: z-Werte und amtlicher Status-Index (Validierung der PCA) | wie oben |
-| `Mietdaten.xlsx` | IBB-Angebotsmieten nach Planungsräumen 2012–2025 | [IBB Wohnungsmarktbericht 2025](https://www.ibb.de/de/ueber-uns/publikationen/wohnungsmarktbericht/2025.html) |
+| `mss2023_gesamtindex_plr.xlsx` | MSS 2023 (Stand 31.12.2022), Tabelle 1: Einwohner, Status-/Dynamikklasse | [MSS 2023 Index-Tabellen](https://www.berlin.de/sen/stadt/stadtdaten/stadtwissen/monitoring-soziale-stadtentwicklung/bericht-2023/tabellen-der-index-indikatoren/) |
+| `mss2023_indexindikatoren_anteile_plr.xlsx` | MSS 2023, Tabelle 2.1: Indikatoren S1–S4 in % | wie oben |
+| `mss2023_indexindikatoren_zwerte_plr.xlsx` | MSS 2023, Tabelle 3: z-Werte und amtlicher Status-Index (Validierung der PCA) | wie oben |
+| `Mietdaten.xlsx` | IBB-Angebotsmieten nach Planungsräumen 2012–2025; verwendet wird das Blatt `Planungsräume_2022` | [IBB Wohnungsmarktbericht](https://www.ibb.de/de/ueber-uns/publikationen/wohnungsmarktbericht/2025.html) |
+
+Alle Daten beziehen sich auf das Jahr 2022 (Jahr der Lärmkarte). Die Dateien
+`sozialdaten.xlsx` und `mss2025_*.xlsx` (Stand 31.12.2024) werden nicht mehr gelesen;
+sie dienten nur zur Robustheitsprüfung (siehe `docs/02_daten.md`, Abschnitt 2.6).
 
 Die Excel-Tabellen werden über die achtstellige PLR-ID erkannt; Titel- und
 Fußnotenzeilen werden automatisch ignoriert. Die Spaltenpositionen stehen
@@ -83,5 +87,5 @@ Die ausführliche Version mit Robustheitschecks liegt auf `fix/pca-mss-analysis`
   Mietinserate) sind im Mietmodell unterrepräsentiert.
 - K-Means: k = 4 begründet gesetzt (Elbow + Interpretierbarkeit, siehe Konfiguration).
 - Aggregierte PLR-Daten erlauben keine individuellen Aussagen (ökologischer Fehlschluss).
-- Zeitstände: Lärm 2022, MSS 2025 (Daten 31.12.2024), Mieten 2025.
+- Zeitstände einheitlich 2022: Lärm 2022, MSS 2023 (Daten 31.12.2022), Mieten 2022.
 - Keine Kausalitätsaussagen aus Querschnittskorrelationen ableiten.
