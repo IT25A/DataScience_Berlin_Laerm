@@ -1,37 +1,3 @@
-"""
-BERLIN DATA SCIENCE: Lärm, soziale Lage und Mieten (Einsteiger-Version)
-=======================================================================
-
-Leitfrage:
-Sind Berliner Planungsräume mit einer ungünstigeren sozialen Lage stärker von
-Lärm betroffen, und wie hängen Lärm, soziale Lage und Angebotsmieten zusammen?
-
-So ist dieses Skript aufgebaut
-------------------------------
-Das Skript arbeitet in 9 Schritten. Jeder Schritt ist eine eigene Funktion.
-Ganz unten in der Funktion main() steht, in welcher Reihenfolge die Schritte
-aufgerufen werden. Am besten liest man das Skript also von unten (main) nach oben.
-
-    Schritt 1: Daten laden und verknüpfen
-    Schritt 2: PCA -> Benachteiligungsindex
-    Schritt 3: Deskriptive Statistik
-    Schritt 4: ANOVA (Hypothesentest)
-    Schritt 5: Multiple lineare Regression (mit räumlicher Korrektur)
-    Schritt 6: K-Means-Clustering
-    Schritt 7: Moran's I (räumliche Abhängigkeit)
-    Schritt 8: Karten
-    Schritt 9: Ergebnisgrafik und Antwort auf die Leitfrage
-
-Kleine Lesehilfe
-----------------
-- Ein "DataFrame" ist eine Tabelle (wie ein Excel-Blatt). Wir nennen sie meist "daten".
-- Ein "GeoDataFrame" ist eine Tabelle mit einer zusätzlichen Spalte "geometry",
-  in der die Umrisse der Planungsräume gespeichert sind.
-- daten["spalte"] liest eine Spalte, daten["neue_spalte"] = ... legt eine neue an.
-- Ausführliche Erklärungen zu allen Methoden stehen im Ordner docs/.
-
-Quellen: siehe docs/02_daten.md
-"""
 
 import argparse
 import textwrap
@@ -50,13 +16,6 @@ from sklearn.cluster import KMeans
 from libpysal.weights import Queen
 from esda.moran import Moran
 
-
-# =============================================================================
-# EINSTELLUNGEN
-# Hier stehen alle Dateinamen und Parameter an einer Stelle.
-# =============================================================================
-
-# Ordner
 ORDNER = Path(__file__).parent              # der Ordner, in dem dieses Skript liegt
 ROHDATEN = ORDNER / "data" / "raw"
 AUFBEREITET_BASIS = ORDNER / "data" / "processed"
@@ -64,8 +23,6 @@ AUSGABE_BASIS = ORDNER / "outputs"
 AUFBEREITET = AUFBEREITET_BASIS
 AUSGABE = AUSGABE_BASIS
 
-# Eingabedateien
-# Standardprofil: alle Daten aus dem Bezugsjahr 2022.
 DATEI_PLANUNGSRAEUME = ROHDATEN / "planungsraeume.geojson"
 DATEI_MSS_TABELLE_1 = ROHDATEN / "mss2023_gesamtindex_plr.xlsx"                # Einwohner
 DATEI_MSS_TABELLE_2 = ROHDATEN / "mss2023_indexindikatoren_anteile_plr.xlsx"   # S1 bis S4
@@ -163,7 +120,6 @@ def datenstand_konfigurieren(datenstand):
 
 # =============================================================================
 # HILFSFUNKTIONEN
-# Kleine Werkzeuge, die in mehreren Schritten benutzt werden.
 # =============================================================================
 
 def p_wert_text(p):
@@ -187,15 +143,12 @@ def excel_zeilen_mit_plr_id(datei, blatt, id_spalte):
     von Hand abzuzählen, behalten wir einfach alle Zeilen, in denen in der ID-Spalte
     eine achtstellige Zahl steht (z. B. "01100101").
     """
-    # header=None: Excel-Zeilen nicht als Spaltennamen benutzen. Die Spalten heißen dann 0, 1, 2, ...
     tabelle = pd.read_excel(datei, sheet_name=blatt, header=None, dtype={id_spalte: str})
 
-    # ID-Spalte als Text vereinheitlichen: Leerzeichen weg, ".0" weg, auf 8 Stellen mit Nullen auffüllen
     ids = tabelle[id_spalte].astype(str).str.strip()
     ids = ids.str.replace(".0", "", regex=False)
     ids = ids.str.zfill(8)
 
-    # Eine Zeile ist gültig, wenn die ID aus genau 8 Ziffern besteht
     ist_gueltig = ids.str.isdigit() & (ids.str.len() == 8)
     tabelle = tabelle[ist_gueltig].copy()
     tabelle[id_spalte] = ids[ist_gueltig]
@@ -207,7 +160,6 @@ def excel_zeilen_mit_plr_id(datei, blatt, id_spalte):
 
 def bezirksgrenzen_zeichnen(ax, daten, mit_namen=False):
     """Zeichnet die 12 Berliner Bezirksgrenzen als schwarze Linien in eine Karte."""
-    # dissolve: alle Planungsräume eines Bezirks zu einer Fläche verschmelzen
     bezirke = daten[["bez", "geometry"]].dissolve(by="bez")
     bezirke.boundary.plot(ax=ax, color="black", linewidth=0.7)
 
@@ -220,18 +172,18 @@ def bezirksgrenzen_zeichnen(ax, daten, mit_namen=False):
 
 
 # =============================================================================
-# SCHRITT 1: DATEN LADEN UND VERKNÜPFEN
+# 1) DATEN LADEN UND VERKNÜPFEN
 # =============================================================================
 
 def daten_laden():
     print("\n[1] Daten laden und verknüpfen ...")
 
-    # --- 1a) Planungsräume (Gebietsgrenzen) -----------------------------------
+    # 1a) Planungsräume (Gebietsgrenzen)
     daten = gpd.read_file(DATEI_PLANUNGSRAEUME)
     daten["plr_id"] = daten["plr_id"].astype(str).str.zfill(8)
     daten = daten[["plr_id", "plr_name", "pgr_id", "bez", "stadtraum_name", "geometry"]]
 
-    # --- 1b) Sozialdaten aus den drei MSS-Tabellen ----------------------------
+    # 1b) Sozialdaten aus den drei MSS-Tabellen 
     # Tabelle 1: Spalte 0 = ID, Spalte 2 = Einwohner
     tabelle1 = excel_zeilen_mit_plr_id(DATEI_MSS_TABELLE_1, BLATT_MSS_TABELLE_1, 0)
     einwohner = pd.DataFrame()
@@ -253,7 +205,7 @@ def daten_laden():
     amtlicher_index["plr_id"] = tabelle3[0]
     amtlicher_index["mss_statusindex"] = pd.to_numeric(tabelle3[8], errors="coerce")
 
-    # --- 1c) Mietdaten der IBB --------------------------------------------------
+    # 1c) Mietdaten der IBB
     # Spalte 1 = ID, Spalte 2 = Name, Spalte 4 = Median-Miete, Spalte 6 = Anzahl Inserate
     tabelle_mieten = excel_zeilen_mit_plr_id(DATEI_MIETEN, MIETEN_BLATT, 1)
     mieten = pd.DataFrame()
@@ -262,40 +214,35 @@ def daten_laden():
     mieten["angebotsmiete_median_roh"] = pd.to_numeric(tabelle_mieten[4], errors="coerce")
     mieten["anzahl_mietinserate"] = pd.to_numeric(tabelle_mieten[6], errors="coerce")
 
-    # --- 1d) Lärmdaten (von aggregate_noise.py vorbereitet) --------------------
+    #  1d) Lärmdaten (von aggregate_noise.py vorbereitet) 
     laerm = pd.read_csv(DATEI_LAERM, dtype={"plr_id": str})
     laerm["plr_id"] = laerm["plr_id"].str.zfill(8)
     laerm = laerm[["plr_id", "laerm_gesamt_lden_db", "anteil_fassaden_lden_ueber_65_prozent"]]
 
-    # --- 1e) Alles über die Planungsraum-ID verknüpfen --------------------------
-    # how="left": alle 542 Planungsräume bleiben erhalten, auch wenn Werte fehlen.
-    # validate="one_to_one": Abbruch, falls eine ID doppelt vorkommt.
+    # 1e) Alles über die Planungsraum-ID verknüpfen 
     daten = daten.merge(einwohner, on="plr_id", how="left", validate="one_to_one")
     daten = daten.merge(indikatoren, on="plr_id", how="left", validate="one_to_one")
     daten = daten.merge(amtlicher_index, on="plr_id", how="left", validate="one_to_one")
     daten = daten.merge(mieten, on="plr_id", how="left", validate="one_to_one")
     daten = daten.merge(laerm, on="plr_id", how="left", validate="one_to_one")
 
-    # --- 1f) Kontrolle: Stimmen die Gebietsnamen der IBB mit den offiziellen überein? ---
+    # 1f) Kontrolle: Stimmen die Gebietsnamen der IBB mit den offiziellen überein? 
     hat_ibb_namen = daten["plr_name_ibb"].notna()
     name_anders = daten["plr_name"] != daten["plr_name_ibb"]
     abweichungen = daten.loc[hat_ibb_namen & name_anders, ["plr_id", "plr_name", "plr_name_ibb"]]
     abweichungen.to_csv(AUSGABE / "pruefung_namensabweichungen_ibb.csv", index=False)
 
-    # --- 1g) Neue Variablen berechnen ------------------------------------------
-    # Fläche in km²: Die Geometrie ist in Metern, also m² / 1.000.000
+    #  1g) Neue Variablen berechnen 
     flaeche_km2 = daten.geometry.area / 1_000_000
     daten["einwohnerdichte"] = daten["einwohner"] / flaeche_km2
-    # Logarithmus staucht sehr große Dichtewerte; +1 verhindert log(0) bei unbewohnten Gebieten
     daten["log_einwohnerdichte"] = np.log1p(daten["einwohnerdichte"])
-    # 1 = Innere Stadt, 0 = Äußere Stadt
     daten["innere_stadt"] = (daten["stadtraum_name"] == "Innere Stadt").astype(int)
 
     # Miete nur übernehmen, wenn genug Inserate vorhanden sind, sonst fehlender Wert (NaN)
     genug_inserate = daten["anzahl_mietinserate"] >= MINDEST_INSERATE
     daten["angebotsmiete_median_eur_m2"] = daten["angebotsmiete_median_roh"].where(genug_inserate)
 
-    # --- 1h) Qualitätsbericht: Wie viele gültige und fehlende Werte hat jede Spalte? ---
+    # 1h) Qualitätsbericht: Wie viele gültige und fehlende Werte hat jede Spalte? 
     spalten = []
     for spalte in daten.columns:
         if spalte not in ["geometry", "plr_id", "plr_name", "plr_name_ibb"]:
@@ -328,7 +275,6 @@ def daten_speichern(daten):
 def pca_benachteiligungsindex(daten):
     print("\n[2] PCA: Benachteiligungsindex aus S1-S4 ...")
 
-    # Nur Gebiete mit allen vier Indikatoren (2022: 536, aktuell: 535)
     indikator_daten = daten[INDIKATOREN].dropna()
 
     # 2a) Standardisieren: jede Spalte bekommt Mittelwert 0 und Standardabweichung 1
@@ -431,7 +377,6 @@ def deskriptive_statistik(daten):
 
 # =============================================================================
 # SCHRITT 4: ANOVA
-# Unterscheidet sich der mittlere Lärm zwischen den fünf Benachteiligungs-Quintilen?
 # =============================================================================
 
 def anova(daten):
@@ -501,8 +446,8 @@ def regressionen(daten):
         ("B_miete", "angebotsmiete_median_eur_m2", ["laerm_gesamt_lden_db"] + index + KONTROLLVARIABLEN),
     ]
 
-    modelle = {}          # hier werden alle geschätzten Modelle gesammelt
-    zeilen = []           # hier werden die Zeilen der Übersichtstabelle gesammelt
+    modelle = {}          
+    zeilen = []           
 
     for name, zielvariable, einflussvariablen in modell_liste:
         klassisch, korrigiert = regression_rechnen(daten, zielvariable, einflussvariablen)
@@ -621,7 +566,6 @@ def kmeans_clustering(daten):
 
 # =============================================================================
 # SCHRITT 7: MORAN'S I
-# Ähneln sich benachbarte Planungsräume stärker, als es zufällig zu erwarten wäre?
 # =============================================================================
 
 def moran_berechnen(daten, werte):

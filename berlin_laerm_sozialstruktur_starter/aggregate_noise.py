@@ -1,14 +1,3 @@
-"""
-Aggregiert echte Fassadenpegel des Berliner Lärm-WFS pro Planungsraum.
-
-Dezibelwerte werden energetisch gemittelt:
-10 * log10(mean(10^(dB/10)))
-
-Da der energetische Mittelwert über verschiedene Fassaden stark von den
-lautesten Fassaden dominiert wird, werden zusätzlich robuste Kennzahlen
-berechnet: Median der Fassadenpegel sowie der Anteil der Fassadenpunkte über
-den Auslösewerten der Lärmaktionsplanung (65 dB(A) LDEN, 55 dB(A) LN).
-"""
 
 import json
 import time

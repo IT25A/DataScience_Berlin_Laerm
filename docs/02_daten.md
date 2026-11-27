@@ -272,3 +272,111 @@ Hinweis zum Öffnen der CSV: Damit die führenden Nullen der IDs erhalten bleibe
 | MSS-Statusklasse (1–4) als Analysevariable | nur 4 grobe Stufen; der stetige PCA-Index enthält mehr Information |
 | Mieten aus Gebieten mit < 21 Inseraten | nicht repräsentativ (IBB-Vorgabe) |
 | Fehlende Werte durch Mittelwerte ersetzen | würde künstliche Daten erzeugen und die Ergebnisse verfälschen |
+
+## Beisspiel und weitere Klärungen
+
+### 1. Was steht im GeoJSON?
+
+Ein Eintrag für **Alt-Rixdorf** sieht vereinfacht so aus:
+
+```json
+{
+  "type": "Feature",
+  "properties": {
+    "plr_id": "08100416",
+    "plr_name": "Alt-Rixdorf",
+    "bez": "08 - Neukölln"
+  },
+  "geometry": {
+    "type": "MultiPolygon",
+    "coordinates": [
+      "... Koordinaten der Gebietsgrenze ..."
+    ]
+  }
+}
+```
+
+Dabei haben die beiden Teile unterschiedliche Aufgaben:
+
+- **`properties`** beschreibt, *welches* Gebiet es ist: Name, ID, Bezirk usw.
+- **`geometry`** beschreibt, *wo* das Gebiet liegt und wie seine Grenze verläuft.
+
+Die Koordinaten müssen also nicht aus dem Namen „Alt-Rixdorf“ berechnet werden: Die fertige Zuordnung von Name, ID und Grenze steht bereits in `planungsraeume.geojson`.
+
+### 2. Wie kommen Sozialdaten und Mieten dazu?
+
+Die Excel-Tabellen enthalten ebenfalls die **Planungsraum-ID**. Diese ID ist der gemeinsame Schlüssel:
+
+| Quelle | ID | Name | Information |
+|---|---|---|---|
+| GeoJSON | `08100416` | Alt-Rixdorf | Gebietsgrenze |
+| Sozialdaten | `08100416` | Alt-Rixdorf | Einwohner, Arbeitslosigkeit usw. |
+| Mietdaten | `08100416` | Alt-Rixdorf | Angebotsmieten |
+
+Der Code verbindet die Tabellen über die ID – nicht über die Koordinaten und auch nicht über den Namen:
+
+```python
+daten = daten.merge(
+    einwohner,
+    on="plr_id",
+    how="left",
+    validate="one_to_one"
+)
+```
+
+Das bedeutet:
+
+1. Nimm jeden Planungsraum aus der GeoJSON-Tabelle.
+2. Suche in der Einwohner-Tabelle dieselbe `plr_id`.
+3. Hänge die Einwohnerzahl an die vorhandene Zeile an.
+4. Behalte auch Gebiete, für die keine Einwohnerzahl gefunden wird (`how="left"`).
+5. Prüfe, dass die IDs nicht doppelt vorkommen (`validate="one_to_one"`).
+
+Dasselbe passiert mit Sozialindikatoren, Mieten und später den bereits aggregierten Lärmdaten. Der Ablauf steht in `daten_laden`.
+
+**Wichtig:** Die ID wird als Text behandelt, damit führende Nullen erhalten bleiben. Sonst könnten `08100416` und `8100416` nicht zuverlässig zugeordnet werden.
+
+### 3. Und wie funktioniert das bei den Lärmdaten?
+
+Hier ist es anders: Die einzelnen Lärmdaten liegen als **Fassadenpunkte mit Koordinaten** vor. Dafür wird ein *räumlicher Join* verwendet:
+
+```python
+joined = gpd.sjoin(
+    points,
+    planning_areas[["plr_id", "plr_name", "geometry"]],
+    how="inner",
+    predicate="within"
+)
+```
+
+Anschaulich fragt das Programm für jeden Punkt:
+
+> Liegt dieser Fassadenpunkt innerhalb der Grenze von Alt-Rixdorf – oder innerhalb eines anderen Planungsraums?
+
+```text
+Fassadenpunkt + Koordinaten
+            ↓
+Welches Planungsraum-Polygon enthält den Punkt?
+            ↓
+Punkt erhält die passende PLR-ID
+            ↓
+Lärmwerte aller Punkte je PLR zusammenfassen
+```
+
+Anschließend werden die Lärmwerte pro ID aggregiert und als Tabelle gespeichert. Diese Tabelle kann dann wieder **über die ID** mit den anderen Daten verknüpft werden. Das geschieht in `aggregate_noise.py`.
+
+Damit der räumliche Join funktioniert, müssen Punkte und Polygone im **gleichen Koordinatensystem** vorliegen. Hier wird `EPSG:25833` verwendet. Bei `within` zählen Punkte genau auf einer Gebietsgrenze nicht als innerhalb.
+
+### 4. Ergebnis am Beispiel Alt-Rixdorf
+
+Nach dem Zusammenführen enthält eine Tabellenzeile zum Beispiel:
+
+| ID | Name | Geometrie | Einwohner 2022 | Lärm |
+|---|---|---|---:|---:|
+| `08100416` | Alt-Rixdorf | Gebietsgrenze | 6.473 | ca. 46,4 dB |
+
+Für die Miete fehlt in diesem Beispiel der verwendete Wert: Es gab 2022 nur 16 Inserate, das Projekt verwendet aber mindestens 21.
+
+Die ursprüngliche GeoJSON-Datei wird dabei **nicht verändert**. Die Analyse erstellt eine neue Tabelle mit allen Spalten und speichert sie unter anderem als `berlin_merged.gpkg` **mit Geometrie**. Die `CSV-Version` enthält die Daten ohne Geometrie.
+
+**Merksatz:** Sozial- und Mietdaten kommen über die **Gebiets-ID** zur Fläche. Lärmpunkte kommen zuerst über ihre **Koordinaten** zur Fläche und erhalten dabei deren ID.
